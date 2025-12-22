@@ -23,7 +23,7 @@ const products = [
         name: 'WBC 決賽紀念 (已售出範例)',
         price: 5200,
         tags: '絕版',
-        image: 'https://images.unsplash.com/photo-1593766788306-28561086694e?auto=format&fit=crop&q=80&w=400',
+        image: '',
         stock: 0,
         layout: 'vertical'
     }
