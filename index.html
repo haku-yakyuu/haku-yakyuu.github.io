@@ -12,10 +12,9 @@
     <nav>
         <div class="nav-logo">HAKU</div>
         <ul class="nav-links">
-            <li><a href="#">所有商品</a></li>
-            <li><a href="#">紀念球系列</a></li>
-            <li><a href="#">職人配件</a></li>
-            <li><a href="#">代購與鑑定</a></li>
+            <li><a href="#featured">精選商品</a></li>
+            <li><a href="#accessories">職人配件</a></li>
+            <li><a href="#services">服務項目</a></li>
         </ul>
         <div class="nav-icons">
             <span class="material-symbols-outlined cart-trigger" onclick="toggleCart()">shopping_bag</span>
@@ -30,16 +29,28 @@
     </header>
 
     <main class="container">
+        
         <section id="featured">
             <div class="sec-header">
                 <h2>FEATURED ARRIVALS</h2>
             </div>
-            <div id="product-list" class="grid-v">
-                <div style="grid-column: 1/-1; text-align:center; padding: 40px;">
-                    載入精選商品中...
-                </div>
-            </div>
+            <div id="grid-vertical-container" class="grid-v"></div>
         </section>
+
+        <section id="accessories">
+            <div class="sec-header">
+                <h2>COLLECTOR'S ESSENTIALS</h2>
+            </div>
+            <div id="grid-horizontal-container" class="grid-h-img"></div>
+        </section>
+
+        <section id="services">
+            <div class="sec-header">
+                <h2>SERVICES</h2>
+            </div>
+            <div id="grid-service-container" class="grid-h-noimg"></div>
+        </section>
+
     </main>
 
     <footer>
@@ -48,7 +59,7 @@
                 <div class="footer-logo">HAKU</div>
                 <p style="opacity: 0.6; font-size: 0.9rem;">紀錄每一投一打的經典瞬間。<br>來自職人眼光的棒球紀念品選物店。</p>
             </div>
-            <div class="copyright">© 2025 HAKU YAKYUU SELECT.</div>
+            <div class="copyright">© 2025 HAKU YAKYUU SELECT. ALL RIGHTS RESERVED.</div>
         </div>
     </footer>
 
@@ -59,7 +70,7 @@
             <span class="material-symbols-outlined close-cart" onclick="toggleCart()">close</span>
         </div>
         <div class="cart-items" id="cart-items-container">
-            <p style="padding:20px; opacity:0.5;">購物車目前是空的</p>
+            <div style="padding:20px; opacity:0.5; text-align:center;">購物車是空的</div>
         </div>
     </aside>
 
