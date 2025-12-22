@@ -3,76 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HAKU YAKYUU | 棒球選品與收藏紀錄</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&family=Noto+Sans+TC:wght@400;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+    <title>KEICHA 選物</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-    <nav>
-        <div class="nav-logo">HAKU</div>
-        <ul class="nav-links">
-            <li><a href="#featured">精選商品</a></li>
-            <li><a href="#accessories">職人配件</a></li>
-            <li><a href="#services">服務項目</a></li>
-        </ul>
-        <div class="nav-icons">
-            <span class="material-symbols-outlined cart-trigger" onclick="toggleCart()">shopping_bag</span>
-            <span class="material-symbols-outlined mobile-menu">menu</span>
-        </div>
-    </nav>
-
-    <header class="hero">
-        <h1>CAPTURE THE MOMENT</h1>
-        <p>從球場的紅土到收藏盒的溫度。HAKU 為您挑選每一顆承載歷史與紀錄的棒球。</p>
-        <a href="#featured" class="hero-btn">探索選品</a>
+    <header>
+        <h1>KEICHA</h1>
     </header>
 
-    <main class="container">
-        
-        <section id="featured">
-            <div class="sec-header">
-                <h2>FEATURED ARRIVALS</h2>
-            </div>
-            <div id="grid-vertical-container" class="grid-v"></div>
+    <main>
+        <section id="section-featured">
+            <h2>精選商品</h2>
+            <div id="featured-list" class="product-grid">
+                </div>
         </section>
 
-        <section id="accessories">
-            <div class="sec-header">
-                <h2>COLLECTOR'S ESSENTIALS</h2>
-            </div>
-            <div id="grid-horizontal-container" class="grid-h-img"></div>
+        <hr>
+
+        <section id="section-crafts">
+            <h2>職人配件</h2>
+            <div id="crafts-list" class="product-grid">
+                </div>
         </section>
 
-        <section id="services">
-            <div class="sec-header">
-                <h2>SERVICES</h2>
-            </div>
-            <div id="grid-service-container" class="grid-h-noimg"></div>
+        <section id="section-services">
+            <h2>服務項目</h2>
+            <div id="services-list" class="product-grid">
+                </div>
         </section>
-
     </main>
-
-    <footer>
-        <div class="container footer-content">
-            <div>
-                <div class="footer-logo">HAKU</div>
-                <p style="opacity: 0.6; font-size: 0.9rem;">紀錄每一投一打的經典瞬間。<br>來自職人眼光的棒球紀念品選物店。</p>
-            </div>
-            <div class="copyright">© 2025 HAKU YAKYUU SELECT. ALL RIGHTS RESERVED.</div>
-        </div>
-    </footer>
-
-    <div class="overlay" id="overlay" onclick="toggleCart()"></div>
-    <aside class="cart-sidebar" id="cartSidebar">
-        <div class="cart-header">
-            <div class="cart-title">YOUR CART</div>
-            <span class="material-symbols-outlined close-cart" onclick="toggleCart()">close</span>
-        </div>
-        <div class="cart-items" id="cart-items-container">
-            <div style="padding:20px; opacity:0.5; text-align:center;">購物車是空的</div>
-        </div>
-    </aside>
 
     <script src="main.js"></script>
 </body>
