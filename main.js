@@ -1,79 +1,94 @@
-// 測試資料：模擬後台回傳的 JSON
-// 未來這部分會替換成 fetch(GAS_API_URL)
-const products = [
-    // 1. 直式 - 正常有圖
-    { id: 'p1', name: '1984 復古紀念球', price: 2480, tags: '新品,限量', image: 'https://images.unsplash.com/photo-1510731039227-5d8c911cde28?auto=format&fit=crop&q=80&w=400', stock: 1, layout: 'vertical' },
-    
-    // 2. 直式 - 無圖 (應顯示佔位色塊，不收縮)
-    { id: 'p2', name: '神秘福袋 (圖片準備中)', price: 1500, tags: '熱門', image: '', stock: 10, layout: 'vertical' },
-    
-    // 3. 直式 - 已售完
-    { id: 'p3', name: 'WBC 決賽用球', price: 5200, tags: '絕版', image: 'https://images.unsplash.com/photo-1593766788306-28561086694e?auto=format&fit=crop&q=80&w=400', stock: 0, layout: 'vertical' },
-    
-    // 4. 橫式 - 有圖
-    { id: 'p4', name: '胡桃木展示架', price: 850, tags: '配件', image: 'https://images.unsplash.com/photo-1529768167801-9173d94c2a42?auto=format&fit=crop&q=80&w=400', stock: 5, layout: 'horizontal' },
-    
-    // 5. 橫式 - 無圖 (應顯示佔位色塊，不收縮)
-    { id: 'p5', name: '特製清潔油 (圖片補拍中)', price: 450, tags: '保養', image: '', stock: 20, layout: 'horizontal' },
-    
-    // 6. 純文字/服務模式 (Layout = no_image) -> 只有這個會收縮
-    { id: 'p6', name: '日本代購服務 (預付訂金)', price: 500, tags: '服務', image: '', stock: 99, layout: 'no_image' },
-    { id: 'p7', name: '收藏品鑑定諮詢', price: 0, tags: '諮詢', image: '', stock: 99, layout: 'no_image' }
-];
+// 設定您的 Google Apps Script 部署網址
+const API_URL = "https://script.google.com/macros/s/AKfycbw7jGvpY2DU5dPdSdkXMcL4Mnf0jZIcKfMYEJOkIiDIm7qoMkGid-upq1AJ3mVRP9Il/exec"; 
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 根據 layout 屬性，將商品分派到不同的容器中
-    renderGrid(products.filter(p => p.layout === 'vertical'), 'grid-vertical-container');
-    renderGrid(products.filter(p => p.layout === 'horizontal'), 'grid-horizontal-container');
-    renderGrid(products.filter(p => p.layout === 'no_image'), 'grid-service-container');
+    fetchProducts();
 });
 
-function renderGrid(data, containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    
-    container.innerHTML = ''; // 清空
+// 從後台抓取資料
+function fetchProducts() {
+    const containerVertical = document.getElementById('grid-vertical-container');
+    // 先顯示 Loading 文字
+    if(containerVertical) containerVertical.innerHTML = '<div style="grid-column:1/-1; text-align:center;">載入 HAKU 選品中...</div>';
 
-    data.forEach(item => {
-        // 1. 決定卡片類別
-        const isHorizontal = item.layout === 'horizontal';
-        const isCompact = item.layout === 'no_image'; // 收縮模式
+    fetch(API_URL)
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // 成功抓取！開始渲染
+            renderGrid(data.products, data.config);
+        } else {
+            console.error('資料讀取錯誤');
+        }
+    })
+    .catch(error => {
+        console.error('API 連線失敗:', error);
+        if(containerVertical) containerVertical.innerHTML = '<div style="grid-column:1/-1; text-align:center;">連線失敗，請稍後再試。</div>';
+    });
+}
+
+function renderGrid(products, config) {
+    // 取得 Config 中的實心標籤設定 (轉為陣列)
+    // 若 config.solid_tags 為空，給一個空陣列避免報錯
+    const solidKeywords = config.solid_tags ? config.solid_tags.split(',') : [];
+
+    // 定義容器
+    const containerV = document.getElementById('grid-vertical-container');
+    const containerH = document.getElementById('grid-horizontal-container');
+    const containerS = document.getElementById('grid-service-container');
+
+    // 清空容器
+    if(containerV) containerV.innerHTML = '';
+    if(containerH) containerH.innerHTML = '';
+    if(containerS) containerS.innerHTML = '';
+
+    products.forEach(item => {
+        // [修正] 注意：您的 JSON 欄位是 layout_type，所以這裡要用 item.layout_type
+        const layout = item.layout_type; 
+        
+        // 分配到對應容器
+        let targetContainer = null;
+        if (layout === 'vertical') targetContainer = containerV;
+        else if (layout === 'horizontal') targetContainer = containerH;
+        else if (layout === 'no_image') targetContainer = containerS;
+
+        if (!targetContainer) return; // 如果找不到容器就不渲染
+
+        // --- 以下邏輯與之前相同 ---
+        
+        const isHorizontal = layout === 'horizontal';
+        const isCompact = layout === 'no_image';
         
         let cardClass = 'haku-card';
         if (isHorizontal) cardClass += ' horizontal';
         if (isCompact) cardClass += ' no-image';
         if (item.stock <= 0) cardClass += ' sold-out';
 
-        // 2. 處理圖片邏輯 (您的關鍵要求)
+        // 圖片邏輯
         let imgHtml = '';
-        
-        if (!isCompact) { // 只要不是收縮模式，都要有圖片區塊
+        if (!isCompact) {
             const imgContainerClass = isHorizontal ? 'img-h' : 'img-v';
-            
-            if (item.image && item.image.trim() !== '') {
-                // 有圖片網址 -> 顯示圖片
-                imgHtml = `<div class="${imgContainerClass}"><img src="${item.image}" alt="${item.name}"></div>`;
+            if (item.images && item.images.trim() !== '') {
+                // 支援多圖，這裡先只取第一張圖顯示在卡片上
+                const firstImage = item.images.split(',')[0].trim();
+                imgHtml = `<div class="${imgContainerClass}"><img src="${firstImage}" alt="${item.name}"></div>`;
             } else {
-                // 無圖片網址 -> 顯示預設色塊 + Icon (不刪除區塊)
                 imgHtml = `<div class="${imgContainerClass}"><span class="material-symbols-outlined">image</span></div>`;
             }
         }
 
-        // 3. 處理 Tags (實心/空心)
-        // 假設從後台 Config 抓到的實心關鍵字
-        const solidKeywords = ['新品', '熱門', '限量', '服務', 'HOT'];
+        // Tags 邏輯 (使用後台 Config)
         const tagHtml = item.tags ? item.tags.split(',').map(tag => {
-            const isSolid = solidKeywords.includes(tag.trim());
-            return `<span class="tag ${isSolid ? 'tag-solid' : 'tag-hollow'}">${tag}</span>`;
+            const t = tag.trim();
+            const isSolid = solidKeywords.includes(t);
+            return `<span class="tag ${isSolid ? 'tag-solid' : 'tag-hollow'}">${t}</span>`;
         }).join('') : '';
 
-        // 4. 處理價格顯示 (0元顯示 FREE)
+        // 價格邏輯
         const priceDisplay = item.price === 0 ? 'FREE' : `$ ${item.price}`;
-        
-        // 5. 處理按鈕 (服務類顯示箭頭，商品顯示購物車)
         const actionIcon = isCompact ? 'arrow_forward' : 'add_shopping_cart';
 
-        // 6. 組合 HTML
+        // 組合 HTML
         const html = `
             <div class="${cardClass}">
                 ${imgHtml}
@@ -85,26 +100,26 @@ function renderGrid(data, containerId) {
                 </div>
             </div>
         `;
-        container.innerHTML += html;
+        targetContainer.innerHTML += html;
     });
 }
 
-// 簡單的購物車開關與提示
+// 購物車功能維持不變
 function toggleCart() {
     const sidebar = document.getElementById('cartSidebar');
     const overlay = document.getElementById('overlay');
-    sidebar.classList.toggle('open');
-    overlay.classList.toggle('open');
+    if(sidebar && overlay) {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('open');
+    }
 }
 
 function addToCart(name) {
     const container = document.getElementById('cart-items-container');
-    // 簡單加入 UI 示範
-    const itemHtml = `<div style="padding:10px; border-bottom:1px solid #ddd; font-size:0.9rem;">${name}</div>`;
-    
-    // 如果是第一次加，清空"購物車是空的"文字
-    if(container.innerText.includes('空的')) container.innerHTML = '';
-    
-    container.innerHTML += itemHtml;
-    toggleCart(); // 打開購物車讓使用者看到
+    if(container) {
+        const itemHtml = `<div style="padding:10px; border-bottom:1px solid #ddd; font-size:0.9rem;">${name}</div>`;
+        if(container.innerText.includes('空的')) container.innerHTML = '';
+        container.innerHTML += itemHtml;
+        toggleCart();
+    }
 }
