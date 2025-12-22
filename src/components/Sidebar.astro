@@ -1,0 +1,70 @@
+---
+import { getProducts } from '../utils/api';
+
+const products = await getProducts();
+const categories = [...new Set(products.map(p => p.category))];
+---
+
+<aside class="sidebar">
+    <div class="brand">
+        <h1>KEICHA</h1>
+    </div>
+    
+    <nav>
+        <div class="nav-group">
+            <div class="nav-title">主選單</div>
+            <a href="/" class="nav-item">首頁 / 精選</a>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-title">商品分類</div>
+            {categories.map(cat => (
+                <a href={`/category/${cat}`} class="nav-item">{cat}</a>
+            ))}
+        </div>
+    </nav>
+</aside>
+
+<style>
+    .sidebar {
+        width: 250px;
+        background: #fff;
+        border-right: 1px solid #eee;
+        height: 100vh;
+        position: fixed;
+        left: 0;
+        top: 0;
+        padding: 20px;
+        box-sizing: border-box;
+        overflow-y: auto;
+    }
+    .brand h1 {
+        margin: 0 0 40px 0;
+        font-size: 24px;
+        color: #d4a373;
+        border-bottom: 2px solid #d4a373;
+        padding-bottom: 10px;
+        display: inline-block;
+    }
+    .nav-title {
+        font-size: 0.85rem;
+        color: #999;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .nav-group { margin-bottom: 30px; }
+    .nav-item {
+        display: block;
+        padding: 10px 15px;
+        color: #555;
+        border-radius: 6px;
+        margin-bottom: 5px;
+        transition: background 0.2s;
+        text-decoration: none;
+    }
+    .nav-item:hover {
+        background-color: #f4f4f4;
+        color: #d4a373;
+    }
+</style>
