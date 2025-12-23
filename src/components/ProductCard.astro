@@ -3,14 +3,22 @@ const { product, solidTagsList } = Astro.props;
 
 // --- 1. 資料處理 ---
 const layout = product.layout || 'vertical'; 
-const images = product.images || [];
+
+// 安全處理圖片陣列
+const rawImages = Array.isArray(product.images) ? product.images : [];
+const images = rawImages.filter(img => {
+    if (typeof img !== 'string' || !img.trim()) return false;
+    // 過濾掉與 layout 關鍵字相同的髒資料
+    const invalidKeywords = ['vertical', 'horizontal', 'no_image'];
+    return !invalidKeywords.includes(img.trim());
+});
 
 // 決定初始 CSS class
 let cardClass = 'haku-card';
 if (layout === 'horizontal') cardClass += ' horizontal';
 if (layout === 'no_image') cardClass += ' horizontal no-image';
 
-// --- 核心修正：圖片路徑處理 helper ---
+// --- 核心修正：強效版圖片路徑處理 helper ---
 const resolveImgPath = (src) => {
     if (!src) return '';
 
@@ -22,12 +30,20 @@ const resolveImgPath = (src) => {
     // 2. 如果是本地路徑，補上 Astro 的 BASE_URL
     const baseUrl = import.meta.env.BASE_URL;
     
-    // 移除 src 開頭可能有的 '/' 或 './' 以避免路徑錯誤
-    let cleanSrc = src;
+    let cleanSrc = src.trim();
+    
+    // A. 移除開頭的 ./ (正規化)
     if (cleanSrc.startsWith('./')) cleanSrc = cleanSrc.slice(2);
+    
+    // B. 移除開頭的 / (為了統一處理，後面再補上 base)
     if (cleanSrc.startsWith('/')) cleanSrc = cleanSrc.slice(1);
 
-    // 確保 BaseURL 結尾有 '/'
+    // C. *** 關鍵修正 ***：移除開頭的 'public/' 
+    // 若使用者在 JSON 寫了 "public/images/xxx.jpg"，這裡會自動修正為 "images/xxx.jpg"
+    // 因為瀏覽器存取 public 資源時不需要 "public" 前綴
+    if (cleanSrc.startsWith('public/')) cleanSrc = cleanSrc.slice(7);
+
+    // D. 確保 BaseURL 結尾有 '/'
     const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
     
     return `${cleanBase}${cleanSrc}`;
@@ -35,12 +51,11 @@ const resolveImgPath = (src) => {
 
 // --- 2. 狀態判斷 ---
 const isSoldOut = product.stock === 0;
-// 若是無圖模式或已售完，顯示箭頭；否則顯示購物車
 const actionIcon = (layout === 'no_image' || isSoldOut) ? 'arrow_forward' : 'add_shopping_cart';
 const iconClass = (actionIcon === 'add_shopping_cart') ? 'material-symbols-outlined cart-icon cart-trigger' : 'material-symbols-outlined cart-icon';
 const displayPrice = product.price > 0 ? `$ ${product.price.toLocaleString()}` : 'Free';
 
-// --- 3. Slider 邏輯 (僅直式且多圖時啟用) ---
+// --- 3. Slider 邏輯 ---
 const hasMultipleImages = images.length > 1;
 const showSlider = hasMultipleImages && layout === 'vertical';
 const uniqueID = `slider-${product.id}-${Math.random().toString(36).substr(2, 9)}`;
@@ -52,27 +67,29 @@ const uniqueID = `slider-${product.id}-${Math.random().toString(36).substr(2, 9)
     {layout !== 'no_image' && (
         <div class={layout === 'vertical' ? 'img-v' : 'img-h'}>
             
-            {/* 底層 Fallback Icon (當圖片載入前或失敗時顯示) */}
             <span class="material-symbols-outlined fallback-icon">
                 {layout === 'vertical' ? 'collections' : 'image'}
             </span>
 
-            {/* 圖片容器 */}
             {images.length > 0 && (
                 <div class={`slider-track ${showSlider ? 'is-slider' : ''}`}>
-                    {images.map((img, index) => (
-                        <img 
-                            src={resolveImgPath(img)} 
-                            alt={`${product.name} - ${index + 1}`} 
-                            loading="lazy"
-                            class="product-img"
-                            onerror={`this.closest('.haku-card').classList.add('no-image'); this.closest('.haku-card').classList.add('horizontal'); this.closest('.img-v, .img-h').style.display='none';`} 
-                        />
-                    ))}
+                    {images.map((img, index) => {
+                        const finalSrc = resolveImgPath(img);
+                        return (
+                            <img 
+                                src={finalSrc} 
+                                alt={`${product.name} - ${index + 1}`} 
+                                loading="lazy"
+                                class="product-img"
+                                data-original-src={img} 
+                                data-debug-path={finalSrc}
+                                onerror={`console.error('Image load failed:', this.dataset.debugPath); this.closest('.haku-card').classList.add('no-image'); this.closest('.haku-card').classList.add('horizontal'); this.closest('.img-v, .img-h').style.display='none';`} 
+                            />
+                        );
+                    })}
                 </div>
             )}
 
-            {/* 滑動控制器 (僅在直式多圖時顯示) */}
             {showSlider && (
                 <>
                     <button class="slider-btn prev" onclick={`document.querySelector('#${uniqueID} .slider-track').scrollBy({left: -200, behavior: 'smooth'})`}>
@@ -90,7 +107,6 @@ const uniqueID = `slider-${product.id}-${Math.random().toString(36).substr(2, 9)
                 </>
             )}
 
-            {/* Sold Out 遮罩 */}
             {isSoldOut && <div class={`sold-out-overlay ${layout === 'horizontal' ? 'sm' : ''}`}>SOLD</div>}
         </div>
     )}
@@ -107,7 +123,6 @@ const uniqueID = `slider-${product.id}-${Math.random().toString(36).substr(2, 9)
         <h3 class="p-name">{product.name}</h3>
         <div class="p-price">{displayPrice}</div>
         
-        {/* 觸發按鈕 */}
         <span class={iconClass}>{actionIcon}</span>
     </div>
 </div>
