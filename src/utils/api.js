@@ -20,6 +20,7 @@ export async function getHakuData() {
         price: Number(item.price),
         stock: Number(item.stock),
         category: item.category,
+        isFeatured: item.isFeatured === true || item.isFeatured === "TRUE",
         tags: item.tags ? item.tags.split(',').map(t => t.trim()) : [],
         layout: item.layout || 'vertical', // 預設直式
         images: item.images ? item.images.split(',').map(url => url.trim()) : [],
