@@ -6,52 +6,98 @@ import { getHakuData } from '../../utils/api';
 export async function getStaticPaths() {
   const { products } = await getHakuData();
   const uniqueCategories = [...new Set(products.map(p => p.category))];
-
-  return uniqueCategories.map(cat => {
-    return {
+  // 增加一個 'all' 路徑如果需要，或者只生成存在的分類
+  return uniqueCategories.map(cat => ({
       params: { slug: cat },
       props: { categoryName: cat },
-    };
-  });
+  }));
 }
 
 const { categoryName } = Astro.props;
 const { products, config, solidTagsList } = await getHakuData();
 
+// 篩選該分類商品
 const categoryProducts = products.filter(p => p.category === categoryName);
+
+// 取得所有分類供側邊欄使用
+const allCategories = [...new Set(products.map(p => p.category))];
 ---
 
 <Layout title={categoryName} siteTitle={config.site_title}>
-    <header class="cat-header">
-        <h1>{categoryName}</h1>
-        <span>/ {categoryProducts.length} ITEMS</span>
-    </header>
     
-    <div class="p-grid grid-mixed">
-        {categoryProducts.map(product => (
-            <ProductCard 
-                product={product} 
-                solidTagsList={solidTagsList} 
-            />
-        ))}
+    <div class="shop-container">
+        
+        <!-- Header -->
+        <header class="shop-header">
+            <div class="breadcrumb">首頁 / {categoryName}</div>
+            <h1>{categoryName}</h1>
+        </header>
+
+        <div class="shop-main">
+            
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="filter-group">
+                    <div class="filter-title">CATEGORIES</div>
+                    <ul class="filter-list">
+                        {allCategories.map(cat => (
+                            <li class={cat === categoryName ? 'active' : ''}>
+                                <a href={`/category/${cat}`}>{cat}</a>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </aside>
+
+            <!-- Product Grid -->
+            <section class="product-content">
+                <div class="shop-toolbar">
+                    <div>顯示 {categoryProducts.length} 項商品</div>
+                    <div style="display: flex; gap: 10px; align-items: center; opacity: 0.6;">
+                        <span>排序方式: 預設</span>
+                        <span class="material-symbols-outlined">expand_more</span>
+                    </div>
+                </div>
+
+                <!-- 這裡強制使用 grid-v，但在 CSS 中針對 PC 版改為 3 欄 -->
+                <div class="grid-shop">
+                    {categoryProducts.map(p => (
+                        <ProductCard product={p} solidTagsList={solidTagsList} />
+                    ))}
+                </div>
+            </section>
+
+        </div>
     </div>
+
 </Layout>
 
 <style>
-    .cat-header {
-        margin-bottom: 40px;
-        display: flex;
-        align-items: baseline;
-        gap: 15px;
-        border-bottom: 2px solid var(--haku-ink);
-        padding-bottom: 10px;
-    }
-    .cat-header h1 { margin: 0; font-size: 2rem; font-weight: 900; }
-    .cat-header span { font-weight: bold; opacity: 0.7; }
+    /* --- Shop Page Styles --- */
+    .shop-container { max-width: 1400px; margin: 0 auto; padding: 40px 0; }
+    
+    .shop-header { margin-bottom: 40px; }
+    .shop-header h1 { font-family: 'Montserrat', sans-serif; font-size: 2rem; margin: 0; text-transform: uppercase;}
+    .breadcrumb { font-size: 0.8rem; opacity: 0.6; margin-bottom: 20px; }
 
-    .p-grid { display: grid; gap: 20px; width: 100%; }
-    .grid-mixed { grid-template-columns: 1fr; }
-    @media (min-width: 768px) {
-        .grid-mixed { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
+    .shop-main { display: flex; gap: 50px; }
+
+    /* Sidebar */
+    .sidebar { width: 280px; flex-shrink: 0; display: none; }
+    .filter-title { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1rem; border-bottom: 2px solid var(--haku-ink); padding-bottom: 10px; margin-bottom: 20px; }
+    .filter-list li { margin-bottom: 12px; font-size: 0.95rem; transition: 0.2s; }
+    .filter-list li:hover { font-weight: 700; padding-left: 5px; }
+    .filter-list li.active { font-weight: 700; text-decoration: underline; }
+
+    /* Grid Adjustment for Shop Page */
+    .product-content { flex-grow: 1; }
+    .shop-toolbar { display: flex; justify-content: space-between; margin-bottom: 30px; font-size: 0.9rem; }
+
+    .grid-shop { display: grid; gap: 20px; grid-template-columns: repeat(2, 1fr); }
+
+    @media (min-width: 1024px) {
+        .sidebar { display: block; }
+        /* 商店頁面右側主內容改為 3 欄 */
+        .grid-shop { grid-template-columns: repeat(3, 1fr); gap: 30px; }
     }
 </style>
