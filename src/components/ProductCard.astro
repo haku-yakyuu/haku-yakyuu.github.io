@@ -1,26 +1,36 @@
 ---
 const { product, solidTagsList } = Astro.props;
 
-// 1. 處理 layout 類型 (預設 vertical)
+// 1. Layout 處理
 const layout = product.layout || 'vertical'; 
-
-// 2. 決定 CSS class
 let cardClass = 'haku-card';
 if (layout === 'horizontal') cardClass += ' horizontal';
 if (layout === 'no_image') cardClass += ' horizontal no-image';
 
-// 3. 圖片處理
-const imageUrl = product.images.length > 0 ? product.images[0] : null;
+// 2. 圖片路徑智慧處理
+let imageUrl = null;
+if (product.images.length > 0) {
+    const rawImg = product.images[0];
+    // 如果是 http 開頭，保持原樣；否則視為本地路徑 (public/)
+    if (rawImg.startsWith('http')) {
+        imageUrl = rawImg;
+    } else {
+        // 確保路徑以 / 開頭
+        imageUrl = rawImg.startsWith('/') ? rawImg : '/' + rawImg;
+    }
+}
 
-// 4. 按鈕與狀態邏輯
+// 3. 狀態與圖示
 const isSoldOut = product.stock === 0;
 const actionIcon = (layout === 'no_image' || isSoldOut) ? 'arrow_forward' : 'add_shopping_cart';
+// 只有購物車圖示才需要觸發側邊欄
+const iconClass = (actionIcon === 'add_shopping_cart') ? 'material-symbols-outlined cart-icon cart-trigger' : 'material-symbols-outlined cart-icon';
+
 const displayPrice = product.price > 0 ? `$ ${product.price.toLocaleString()}` : 'Free';
 ---
 
 <div class={`${cardClass} ${isSoldOut ? 'sold-out' : ''}`}>
     
-    {/* 直式圖片區 (Vertical) */}
     {layout === 'vertical' && (
         <div class="img-v">
             {imageUrl ? (
@@ -32,7 +42,6 @@ const displayPrice = product.price > 0 ? `$ ${product.price.toLocaleString()}` :
         </div>
     )}
 
-    {/* 橫式圖片區 (Horizontal) */}
     {layout === 'horizontal' && (
         <div class="h-card-img">
             {imageUrl ? (
@@ -44,7 +53,6 @@ const displayPrice = product.price > 0 ? `$ ${product.price.toLocaleString()}` :
         </div>
     )}
 
-    {/* 內容區 */}
     <div class="card-body">
         <div class="tag-group">
             {product.tags.map(tag => {
@@ -54,12 +62,13 @@ const displayPrice = product.price > 0 ? `$ ${product.price.toLocaleString()}` :
         </div>
         <h3 class="p-name">{product.name}</h3>
         <div class="p-price">{displayPrice}</div>
-        <span class="material-symbols-outlined cart-icon">{actionIcon}</span>
+        
+        <!-- 點擊此圖示會觸發 Layout 中的 JS 打開側邊欄 -->
+        <span class={iconClass}>{actionIcon}</span>
     </div>
 </div>
 
 <style>
-    /* --- HAKU V5 Card Styles --- */
     .haku-card { 
         background-color: var(--haku-paper); 
         border: 1px solid rgba(62, 39, 35, 0.1); 
@@ -76,13 +85,11 @@ const displayPrice = product.price > 0 ? `$ ${product.price.toLocaleString()}` :
     .cart-icon { position: absolute; bottom: 18px; right: 18px; cursor: pointer; color: var(--haku-ink); opacity: 0.8; }
     .cart-icon:hover { opacity: 1; transform: scale(1.1); }
 
-    /* Tags */
     .tag-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
     .tag { font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border: 1px solid var(--haku-ink); border-radius: 2px; text-transform: uppercase; }
     .tag-hollow { color: var(--haku-ink); background: transparent; }
     .tag-solid { color: var(--haku-paper); background: var(--haku-ink); }
 
-    /* Images */
     .img-v { 
         position: relative; width: 100%; aspect-ratio: 1/1; 
         background: var(--placeholder-bg); color: var(--placeholder-icon);
@@ -95,14 +102,12 @@ const displayPrice = product.price > 0 ? `$ ${product.price.toLocaleString()}` :
     }
     img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-    /* Layout Modifiers */
     .haku-card.horizontal { flex-direction: row; min-height: 130px; }
     .horizontal .card-body { justify-content: center; }
     
     .no-image { border-top: 5px solid var(--haku-ink); }
     .no-image .card-body { padding: 25px 18px; }
 
-    /* Sold Out */
     .sold-out { opacity: 0.8; pointer-events: none; }
     .sold-out-overlay {
         position: absolute; top:0; left:0; width:100%; height:100%;
