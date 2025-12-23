@@ -5,11 +5,7 @@ import { getHakuData } from '../utils/api';
 
 const { products, config, solidTagsList } = await getHakuData();
 
-// 1. 篩選精選商品 (isFeatured = true)
 const featuredProducts = products.filter(p => p.isFeatured);
-
-// 2. 其餘商品 (按照原順序，或你想排除精選也可以)
-// 這裡假設首頁下面顯示所有商品
 const allProducts = products; 
 ---
 
@@ -18,7 +14,6 @@ const allProducts = products;
     {featuredProducts.length > 0 && (
         <section>
             <h2>FEATURED <span>精選商品</span></h2>
-            {/* 這裡使用你的 grid-vertical 樣式，比較有氣勢 */}
             <div class="p-grid grid-vertical">
                 {featuredProducts.map(product => (
                     <ProductCard product={product} solidTagsList={solidTagsList} />
@@ -29,7 +24,6 @@ const allProducts = products;
 
     <section>
         <h2>ALL PRODUCTS <span>全商品一覧</span></h2>
-        {/* 使用自動填滿的 Grid，適應各種版型混合 */}
         <div class="p-grid grid-mixed">
             {allProducts.map(product => (
                 <ProductCard product={product} solidTagsList={solidTagsList} />
@@ -40,24 +34,11 @@ const allProducts = products;
 </Layout>
 
 <style>
-    /* 引入你的網格系統 */
     .p-grid { display: grid; gap: 20px; width: 100%; }
-
-    /* 你的樣式 1: 用於精選 */
     .grid-vertical { grid-template-columns: repeat(2, 1fr); }
     @media (min-width: 1024px) { .grid-vertical { grid-template-columns: repeat(4, 1fr); gap: 30px; } }
-
-    /* 混合網格：適合下方列表，自動適應直/橫 */
-    .grid-mixed { 
-        grid-template-columns: 1fr; 
-    }
+    .grid-mixed { grid-template-columns: 1fr; }
     @media (min-width: 768px) {
-        .grid-mixed { 
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
-            gap: 25px;
-        }
+        .grid-mixed { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
     }
-    
-    /* 若是橫式卡片在混合網格中，可以設定讓它跨欄 (選用) */
-    /* :global(.horizontal) { grid-column: span 1; } */
 </style>
