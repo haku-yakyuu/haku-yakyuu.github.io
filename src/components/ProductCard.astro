@@ -10,10 +10,27 @@ let cardClass = 'haku-card';
 if (layout === 'horizontal') cardClass += ' horizontal';
 if (layout === 'no_image') cardClass += ' horizontal no-image';
 
-// 圖片路徑處理 helper
+// --- 核心修正：圖片路徑處理 helper ---
 const resolveImgPath = (src) => {
     if (!src) return '';
-    return src.startsWith('http') ? src : (src.startsWith('/') ? src : '/' + src);
+
+    // 1. 如果是外部連結 (http/https) 或 Base64，原樣回傳
+    if (src.startsWith('http') || src.startsWith('data:')) {
+        return src;
+    }
+
+    // 2. 如果是本地路徑，補上 Astro 的 BASE_URL
+    const baseUrl = import.meta.env.BASE_URL;
+    
+    // 移除 src 開頭可能有的 '/' 或 './' 以避免路徑錯誤
+    let cleanSrc = src;
+    if (cleanSrc.startsWith('./')) cleanSrc = cleanSrc.slice(2);
+    if (cleanSrc.startsWith('/')) cleanSrc = cleanSrc.slice(1);
+
+    // 確保 BaseURL 結尾有 '/'
+    const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+    
+    return `${cleanBase}${cleanSrc}`;
 };
 
 // --- 2. 狀態判斷 ---
