@@ -1,48 +1,63 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import ProductCard from '../components/ProductCard.astro';
-import { getProducts } from '../utils/api';
+import { getHakuData } from '../utils/api';
 
-const allProducts = await getProducts();
-const featuredProducts = allProducts.filter(p => p.isFeatured);
-const categories = [...new Set(allProducts.map(p => p.category))];
+const { products, config, solidTagsList } = await getHakuData();
+
+// 1. 篩選精選商品 (isFeatured = true)
+const featuredProducts = products.filter(p => p.isFeatured);
+
+// 2. 其餘商品 (按照原順序，或你想排除精選也可以)
+// 這裡假設首頁下面顯示所有商品
+const allProducts = products; 
 ---
 
-<Layout title="首頁">
-    <section class="section-featured">
-        <h2 class="section-title">✨ 本月精選</h2>
-        <div class="grid">
-            {featuredProducts.map(product => (
-                <ProductCard product={product} />
+<Layout title="Home" siteTitle={config.site_title}>
+
+    {featuredProducts.length > 0 && (
+        <section>
+            <h2>FEATURED <span>精選商品</span></h2>
+            {/* 這裡使用你的 grid-vertical 樣式，比較有氣勢 */}
+            <div class="p-grid grid-vertical">
+                {featuredProducts.map(product => (
+                    <ProductCard product={product} solidTagsList={solidTagsList} />
+                ))}
+            </div>
+        </section>
+    )}
+
+    <section>
+        <h2>ALL PRODUCTS <span>全商品一覧</span></h2>
+        {/* 使用自動填滿的 Grid，適應各種版型混合 */}
+        <div class="p-grid grid-mixed">
+            {allProducts.map(product => (
+                <ProductCard product={product} solidTagsList={solidTagsList} />
             ))}
         </div>
     </section>
 
-    <hr class="divider">
-
-    {categories.map(catName => {
-        const catProducts = allProducts.filter(p => p.category === catName).slice(0, 4);
-        if (catProducts.length === 0) return null;
-        return (
-            <section class="section-category">
-                <div class="category-header">
-                    <h2 class="section-title">{catName}</h2>
-                    <a href={`/category/${catName}`} class="view-all">查看全部 &rarr;</a>
-                </div>
-                <div class="grid">
-                    {catProducts.map(product => (
-                        <ProductCard product={product} />
-                    ))}
-                </div>
-            </section>
-        );
-    })}
 </Layout>
 
 <style>
-    .section-title { border-left: 5px solid #d4a373; padding-left: 15px; margin-bottom: 20px; }
-    .divider { border: 0; border-top: 1px solid #eee; margin: 40px 0; }
-    .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .view-all { font-size: 0.9rem; color: #888; padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px; transition: all 0.2s; }
-    .view-all:hover { border-color: #d4a373; color: #d4a373; }
+    /* 引入你的網格系統 */
+    .p-grid { display: grid; gap: 20px; width: 100%; }
+
+    /* 你的樣式 1: 用於精選 */
+    .grid-vertical { grid-template-columns: repeat(2, 1fr); }
+    @media (min-width: 1024px) { .grid-vertical { grid-template-columns: repeat(4, 1fr); gap: 30px; } }
+
+    /* 混合網格：適合下方列表，自動適應直/橫 */
+    .grid-mixed { 
+        grid-template-columns: 1fr; 
+    }
+    @media (min-width: 768px) {
+        .grid-mixed { 
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+            gap: 25px;
+        }
+    }
+    
+    /* 若是橫式卡片在混合網格中，可以設定讓它跨欄 (選用) */
+    /* :global(.horizontal) { grid-column: span 1; } */
 </style>
