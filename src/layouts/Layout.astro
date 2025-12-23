@@ -1,85 +1,174 @@
 ---
+import CartSidebar from '../components/CartSidebar.astro';
+const { title, siteTitle } = Astro.props;
 ---
-<div id="cart-overlay" class="cart-overlay"></div>
 
-<aside id="cart-sidebar" class="cart-sidebar">
-    <div class="cart-header">
-        <h2>SHOPPING CART <span id="cart-count">(0)</span></h2>
-        <button id="close-cart" class="close-btn">
-            <span class="material-symbols-outlined">close</span>
-        </button>
-    </div>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title} | {siteTitle || 'HAKU YAKYUU'}</title>
+    
+    <!-- 修正：正確讀取 public/favicon.svg -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&family=Noto+Sans+TC:wght@400;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+</head>
+<body>
 
-    <div class="cart-body">
-        <!-- 空購物車狀態 (預設) -->
-        <div class="empty-state">
-            <span class="material-symbols-outlined icon">shopping_bag</span>
-            <p>您的購物車目前是空的</p>
-            <a href="/" class="shop-btn">繼續選購</a>
+    <!-- 頂部導覽列 -->
+    <nav>
+        <div class="nav-logo">HAKU</div>
+        <ul class="nav-links">
+            <li><a href="/">首頁</a></li>
+            <li><a href="/category/紀念球">紀念球系列</a></li>
+            <li><a href="/category/職人配件">職人配件</a></li>
+            <li><a href="/category/服務項目">代購與鑑定</a></li>
+        </ul>
+        <div class="nav-icons">
+            <span class="material-symbols-outlined">search</span>
+            <span class="material-symbols-outlined cart-trigger">shopping_bag</span>
+            <span class="material-symbols-outlined menu-icon">menu</span>
         </div>
-        
-        <!-- 未來可在此插入動態購物車列表 -->
-    </div>
+    </nav>
 
-    <div class="cart-footer">
-        <div class="total-row">
-            <span>SUBTOTAL</span>
-            <span class="total-price">$ 0</span>
+    <main>
+        <slot />
+    </main>
+
+    <CartSidebar />
+
+    <footer>
+        <div class="container footer-content">
+            <div>
+                <div class="footer-logo">HAKU</div>
+                <p style="opacity: 0.6; font-size: 0.9rem;">紀錄每一投一打的經典瞬間。<br>來自職人眼光的棒球紀念品選物店。</p>
+            </div>
+            <div class="footer-links">
+                <h4>SHOP</h4>
+                <ul>
+                    <li><a href="/">所有商品</a></li>
+                    <li><a href="/category/紀念球">紀念球</a></li>
+                    <li><a href="/category/職人配件">配件</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>INFO</h4>
+                <ul><li>關於我們</li><li>配送政策</li><li>退換貨說明</li></ul>
+            </div>
+            <div class="footer-links">
+                <h4>CONNECT</h4>
+                <ul><li>Instagram</li><li>Facebook</li><li>LINE 客服</li></ul>
+            </div>
         </div>
-        <button class="checkout-btn">CHECKOUT</button>
-    </div>
-</aside>
+        <div class="copyright">© 2025 HAKU YAKYUU SELECT. ALL RIGHTS RESERVED.</div>
+    </footer>
 
-<style>
-    /* 遮罩層 */
-    .cart-overlay {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(62, 39, 35, 0.6); z-index: 1001;
-        opacity: 0; visibility: hidden; transition: 0.3s;
-        backdrop-filter: blur(2px);
+</body>
+</html>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const sidebar = document.getElementById('cart-sidebar');
+        const overlay = document.getElementById('cart-overlay');
+        const closeBtn = document.getElementById('close-cart');
+
+        function openCart() {
+            if (sidebar && overlay) {
+                sidebar.classList.add('open');
+                overlay.classList.add('open');
+            }
+        }
+
+        function closeCart() {
+            if (sidebar && overlay) {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('open');
+            }
+        }
+
+        document.addEventListener('click', (e) => {
+            // @ts-ignore
+            if (e.target.closest('.cart-trigger')) {
+                openCart();
+            }
+        });
+
+        if (closeBtn) closeBtn.addEventListener('click', closeCart);
+        if (overlay) overlay.addEventListener('click', closeCart);
+    });
+</script>
+
+<style is:global>
+    :root {
+        --haku-ink: #3E2723;
+        --haku-paper: #F5F1E8;
+        --placeholder-bg: #DCD7CE;
+        --placeholder-icon: rgba(62, 39, 35, 0.3);
+        --section-gap: 120px;
     }
-    .cart-overlay.open { opacity: 1; visibility: visible; }
 
-    /* 側邊欄本體 */
-    .cart-sidebar {
-        position: fixed; top: 0; right: -400px; width: 100%; max-width: 400px; height: 100%;
-        background: var(--haku-paper); color: var(--haku-ink);
-        z-index: 1002; transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        display: flex; flex-direction: column;
-        border-left: 1px solid rgba(62, 39, 35, 0.1);
-        box-shadow: -5px 0 30px rgba(0,0,0,0.1);
+    * { box-sizing: border-box; }
+    body { 
+        margin: 0; padding: 0; 
+        background-color: var(--haku-paper); 
+        font-family: 'Noto Sans TC', sans-serif; 
+        color: var(--haku-ink);
+        line-height: 1.6;
     }
-    .cart-sidebar.open { right: 0; }
+    a { text-decoration: none; color: inherit; transition: opacity 0.2s; }
+    a:hover { opacity: 0.7; }
+    ul { list-style: none; padding: 0; margin: 0; }
 
-    /* Header */
-    .cart-header {
-        padding: 20px 30px;
+    /* Navbar */
+    nav {
+        position: sticky; top: 0; z-index: 1000;
+        background-color: var(--haku-paper);
         border-bottom: 1px solid rgba(62, 39, 35, 0.1);
         display: flex; justify-content: space-between; align-items: center;
+        padding: 15px 5%;
     }
-    .cart-header h2 { font-family: 'Montserrat', sans-serif; font-size: 1.2rem; margin: 0; font-weight: 900; }
-    .close-btn { background: none; border: none; cursor: pointer; color: var(--haku-ink); padding: 5px; }
-    .close-btn:hover { transform: rotate(90deg); transition: 0.3s; }
-
-    /* Body */
-    .cart-body { flex: 1; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; }
+    .nav-logo { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.8rem; letter-spacing: 2px; }
+    .nav-links { display: none; gap: 30px; font-weight: 700; font-size: 0.9rem; }
+    .nav-icons { display: flex; gap: 20px; cursor: pointer; }
     
-    .empty-state { text-align: center; margin: auto; opacity: 0.6; }
-    .empty-state .icon { font-size: 48px; margin-bottom: 15px; display: block; }
-    .shop-btn { 
-        display: inline-block; margin-top: 20px; 
-        border-bottom: 1px solid var(--haku-ink); padding-bottom: 2px; 
-        font-weight: 700; font-size: 0.9rem;
+    @media (min-width: 1024px) { 
+        .nav-links { display: flex; } 
+        .menu-icon { display: none; }
     }
 
-    /* Footer */
-    .cart-footer { padding: 30px; border-top: 1px solid rgba(62, 39, 35, 0.1); background: #fdfbf7; }
-    .total-row { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 20px; font-family: 'Montserrat'; }
-    .total-price { font-size: 1.2rem; }
-    .checkout-btn {
-        width: 100%; padding: 15px; background: var(--haku-ink); color: var(--haku-paper);
-        border: none; font-family: 'Montserrat'; font-weight: 900; letter-spacing: 1px;
-        cursor: pointer; transition: 0.2s;
+    /* Common */
+    .container { max-width: 1400px; margin: 0 auto; padding: 0 5%; }
+    section { margin-top: var(--section-gap); }
+    .sec-header { 
+        border-bottom: 3px solid var(--haku-ink); 
+        margin-bottom: 40px; 
+        display: flex; justify-content: space-between; align-items: flex-end; 
+        padding-bottom: 10px; 
     }
-    .checkout-btn:hover { background: #5d4037; }
+    .sec-header h2 { font-family: 'Montserrat', sans-serif; font-size: 1.5rem; margin: 0; }
+    
+    /* Footer */
+    footer {
+        background-color: var(--haku-ink); color: var(--haku-paper);
+        margin-top: var(--section-gap); padding: 80px 5% 40px;
+    }
+    .footer-content { display: grid; grid-template-columns: 1fr; gap: 40px; }
+    @media (min-width: 1024px) { .footer-content { grid-template-columns: 2fr 1fr 1fr 1fr; } }
+    
+    .footer-logo { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 2rem; margin-bottom: 20px; }
+    .footer-links h4 { margin-bottom: 20px; border-bottom: 1px solid rgba(245, 241, 232, 0.3); padding-bottom: 10px; font-family: 'Montserrat'; }
+    .footer-links li { margin-bottom: 10px; font-size: 0.9rem; opacity: 0.7; }
+    .copyright { margin-top: 60px; text-align: center; font-size: 0.8rem; opacity: 0.4; }
+
+    /* Grid Definitions */
+    .grid-v { display: grid; gap: 20px; grid-template-columns: repeat(2, 1fr); }
+    @media (min-width: 1024px) { .grid-v { grid-template-columns: repeat(4, 1fr); gap: 30px; } }
+
+    .grid-h-img { display: grid; gap: 20px; grid-template-columns: 1fr; }
+    @media (min-width: 1024px) { .grid-h-img { grid-template-columns: repeat(3, 1fr); gap: 30px; } }
+
+    .grid-h-noimg { display: grid; gap: 20px; grid-template-columns: 1fr; }
+    @media (min-width: 1024px) { .grid-h-noimg { grid-template-columns: repeat(4, 1fr); gap: 20px; } }
 </style>
