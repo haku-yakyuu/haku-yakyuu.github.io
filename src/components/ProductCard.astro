@@ -4,43 +4,37 @@ const { product, solidTagsList } = Astro.props;
 // 1. 處理 layout 類型 (預設 vertical)
 const layout = product.layout || 'vertical'; 
 
-// 2. 決定卡片 CSS class
+// 2. 決定 CSS class
 let cardClass = 'haku-card';
 if (layout === 'horizontal') cardClass += ' horizontal';
 if (layout === 'no_image') cardClass += ' horizontal no-image';
 
-// 3. 圖片處理 (若無圖則顯示 icon)
+// 3. 圖片處理
 const imageUrl = product.images.length > 0 ? product.images[0] : null;
 
-// 4. 按鈕圖示邏輯：無圖或庫存0顯示箭頭(前往詳情)，否則顯示購物車
+// 4. 按鈕與狀態邏輯
 const isSoldOut = product.stock === 0;
 const actionIcon = (layout === 'no_image' || isSoldOut) ? 'arrow_forward' : 'add_shopping_cart';
-
-// 5. 價格顯示
 const displayPrice = product.price > 0 ? `$ ${product.price.toLocaleString()}` : 'Free';
 ---
 
 <div class={`${cardClass} ${isSoldOut ? 'sold-out' : ''}`}>
     
-    {/* --- 直式圖片區 (Vertical) --- */}
+    {/* 直式圖片區 (Vertical) */}
     {layout === 'vertical' && (
         <div class="img-v">
             {imageUrl ? (
                 <img src={imageUrl} alt={product.name} loading="lazy" />
             ) : (
-                <span class="material-symbols-outlined" style="font-size:48px;">image</span>
-            )}
-            {/* V5: 多圖點點 (目前僅顯示結構) */}
-            {product.images.length > 1 && (
-                <div class="dots"><div class="dot active"></div><div class="dot"></div></div>
+                <span class="material-symbols-outlined" style="font-size:48px;">collections</span>
             )}
             {isSoldOut && <div class="sold-out-overlay">SOLD OUT</div>}
         </div>
     )}
 
-    {/* --- 橫式圖片區 (Horizontal) --- */}
+    {/* 橫式圖片區 (Horizontal) */}
     {layout === 'horizontal' && (
-        <div class="img-h">
+        <div class="h-card-img">
             {imageUrl ? (
                 <img src={imageUrl} alt={product.name} loading="lazy" />
             ) : (
@@ -50,127 +44,71 @@ const displayPrice = product.price > 0 ? `$ ${product.price.toLocaleString()}` :
         </div>
     )}
 
-    {/* --- 卡片內容區 --- */}
+    {/* 內容區 */}
     <div class="card-body">
-        {/* Tags */}
         <div class="tag-group">
             {product.tags.map(tag => {
                 const isSolid = solidTagsList.includes(tag);
                 return <span class={`tag ${isSolid ? 'tag-solid' : 'tag-hollow'}`}>{tag}</span>
             })}
         </div>
-
         <h3 class="p-name">{product.name}</h3>
-
         <div class="p-price">{displayPrice}</div>
-
         <span class="material-symbols-outlined cart-icon">{actionIcon}</span>
     </div>
 </div>
 
 <style>
-    /* --- HAKU V5 Component Styles --- */
-    
-    /* 基礎卡片 */
+    /* --- HAKU V5 Card Styles --- */
     .haku-card { 
         background-color: var(--haku-paper); 
         border: 1px solid rgba(62, 39, 35, 0.1); 
-        display: flex; 
-        flex-direction: column; 
-        position: relative; 
-        overflow: hidden; 
-        transition: transform 0.2s, box-shadow 0.2s;
+        display: flex; flex-direction: column; 
+        position: relative; overflow: hidden; 
+        transition: transform 0.2s;
     }
-    .haku-card:hover { 
-        transform: translateY(-4px); 
-        box-shadow: 0 10px 20px rgba(62,39,35,0.08); 
-    }
+    .haku-card:hover { transform: translateY(-4px); box-shadow: 0 10px 20px rgba(62,39,35,0.08); }
 
-    .card-body { 
-        padding: 18px; 
-        flex-grow: 1; 
-        display: flex; 
-        flex-direction: column; 
-        position: relative; 
-    }
-
-    /* 文字排版 */
-    .p-name { 
-        font-size: 1rem; 
-        font-weight: 700; 
-        margin: 0 0 12px 0; 
-        padding-right: 30px; 
-        line-height: 1.4; 
-        color: var(--haku-ink);
-    }
-    .p-price { 
-        font-family: 'Montserrat', sans-serif; 
-        font-weight: 900; 
-        font-size: 1.1rem; 
-        margin-top: auto; 
-        color: var(--haku-ink); 
-    }
-
-    /* Icons */
-    .cart-icon { 
-        position: absolute; 
-        bottom: 18px; 
-        right: 18px; 
-        cursor: pointer; 
-        opacity: 0.8; 
-        color: var(--haku-ink);
-    }
+    .card-body { padding: 18px; flex-grow: 1; display: flex; flex-direction: column; position: relative; }
+    
+    .p-name { font-size: 1rem; font-weight: 700; margin: 0 0 12px 0; padding-right: 30px; color: var(--haku-ink); line-height: 1.4; }
+    .p-price { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.1rem; margin-top: auto; color: var(--haku-ink); }
+    .cart-icon { position: absolute; bottom: 18px; right: 18px; cursor: pointer; color: var(--haku-ink); opacity: 0.8; }
     .cart-icon:hover { opacity: 1; transform: scale(1.1); }
 
-    /* 標籤 Tag V5 */
+    /* Tags */
     .tag-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-    .tag { 
-        font-size: 0.65rem; 
-        font-weight: 700; 
-        padding: 2px 8px; 
-        border: 1px solid var(--haku-ink); 
-        border-radius: 2px; 
-        text-transform: uppercase; 
-    }
+    .tag { font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border: 1px solid var(--haku-ink); border-radius: 2px; text-transform: uppercase; }
     .tag-hollow { color: var(--haku-ink); background: transparent; }
     .tag-solid { color: var(--haku-paper); background: var(--haku-ink); }
 
-    /* --- 圖片區域樣式 --- */
+    /* Images */
     .img-v { 
         position: relative; width: 100%; aspect-ratio: 1/1; 
-        background: var(--placeholder-bg); 
+        background: var(--placeholder-bg); color: var(--placeholder-icon);
         display: flex; justify-content: center; align-items: center; 
-        color: var(--placeholder-icon); 
     }
-    .img-h { 
-        width: 110px; flex-shrink: 0; 
-        background: var(--placeholder-bg); 
+    .h-card-img { 
+        width: 120px; flex-shrink: 0; position: relative;
+        background: var(--placeholder-bg); color: var(--placeholder-icon);
         display: flex; justify-content: center; align-items: center; 
-        color: var(--placeholder-icon); 
-        position: relative;
     }
     img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-    /* 點點 UI */
-    .dots { position: absolute; bottom: 10px; width: 100%; display: flex; justify-content: center; gap: 4px; }
-    .dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(62,39,35,0.2); }
-    .dot.active { background: var(--haku-ink); }
-
-    /* --- Layout Modifiers --- */
+    /* Layout Modifiers */
     .haku-card.horizontal { flex-direction: row; min-height: 130px; }
     .horizontal .card-body { justify-content: center; }
-
+    
     .no-image { border-top: 5px solid var(--haku-ink); }
-    /* no-image 模式下，img-h 不渲染，高度會自然收縮 */
     .no-image .card-body { padding: 25px 18px; }
 
-    /* --- Sold Out Overlay --- */
+    /* Sold Out */
     .sold-out { opacity: 0.8; pointer-events: none; }
     .sold-out-overlay {
         position: absolute; top:0; left:0; width:100%; height:100%;
-        background: rgba(62,39,35,0.6); color: #FFF;
+        background: rgba(62,39,35,0.7); color: #FFF;
         display: flex; justify-content: center; align-items: center;
-        font-family: 'Montserrat'; font-weight: 900; letter-spacing: 1px;
+        font-family: 'Montserrat'; font-weight: 900;
     }
     .sold-out-overlay.sm { font-size: 0.8rem; }
 </style>
