@@ -1,0 +1,85 @@
+---
+---
+<div id="cart-overlay" class="cart-overlay"></div>
+
+<aside id="cart-sidebar" class="cart-sidebar">
+    <div class="cart-header">
+        <h2>SHOPPING CART <span id="cart-count">(0)</span></h2>
+        <button id="close-cart" class="close-btn">
+            <span class="material-symbols-outlined">close</span>
+        </button>
+    </div>
+
+    <div class="cart-body">
+        <!-- 空購物車狀態 (預設) -->
+        <div class="empty-state">
+            <span class="material-symbols-outlined icon">shopping_bag</span>
+            <p>您的購物車目前是空的</p>
+            <a href="/" class="shop-btn">繼續選購</a>
+        </div>
+        
+        <!-- 未來可在此插入動態購物車列表 -->
+    </div>
+
+    <div class="cart-footer">
+        <div class="total-row">
+            <span>SUBTOTAL</span>
+            <span class="total-price">$ 0</span>
+        </div>
+        <button class="checkout-btn">CHECKOUT</button>
+    </div>
+</aside>
+
+<style>
+    /* 遮罩層 */
+    .cart-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(62, 39, 35, 0.6); z-index: 1001;
+        opacity: 0; visibility: hidden; transition: 0.3s;
+        backdrop-filter: blur(2px);
+    }
+    .cart-overlay.open { opacity: 1; visibility: visible; }
+
+    /* 側邊欄本體 */
+    .cart-sidebar {
+        position: fixed; top: 0; right: -400px; width: 100%; max-width: 400px; height: 100%;
+        background: var(--haku-paper); color: var(--haku-ink);
+        z-index: 1002; transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        display: flex; flex-direction: column;
+        border-left: 1px solid rgba(62, 39, 35, 0.1);
+        box-shadow: -5px 0 30px rgba(0,0,0,0.1);
+    }
+    .cart-sidebar.open { right: 0; }
+
+    /* Header */
+    .cart-header {
+        padding: 20px 30px;
+        border-bottom: 1px solid rgba(62, 39, 35, 0.1);
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .cart-header h2 { font-family: 'Montserrat', sans-serif; font-size: 1.2rem; margin: 0; font-weight: 900; }
+    .close-btn { background: none; border: none; cursor: pointer; color: var(--haku-ink); padding: 5px; }
+    .close-btn:hover { transform: rotate(90deg); transition: 0.3s; }
+
+    /* Body */
+    .cart-body { flex: 1; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; }
+    
+    .empty-state { text-align: center; margin: auto; opacity: 0.6; }
+    .empty-state .icon { font-size: 48px; margin-bottom: 15px; display: block; }
+    .shop-btn { 
+        display: inline-block; margin-top: 20px; 
+        border-bottom: 1px solid var(--haku-ink); padding-bottom: 2px; 
+        font-weight: 700; font-size: 0.9rem;
+    }
+
+    /* Footer */
+    .cart-footer { padding: 30px; border-top: 1px solid rgba(62, 39, 35, 0.1); background: #fdfbf7; }
+    .total-row { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 20px; font-family: 'Montserrat'; }
+    .total-price { font-size: 1.2rem; }
+    .checkout-btn {
+        width: 100%; padding: 15px; background: var(--haku-ink); color: var(--haku-paper);
+        border: none; font-family: 'Montserrat'; font-weight: 900; letter-spacing: 1px;
+        cursor: pointer; transition: 0.2s;
+    }
+    .checkout-btn:hover { background: #5d4037; }
+</style>
