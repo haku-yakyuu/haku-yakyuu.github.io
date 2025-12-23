@@ -1,58 +1,84 @@
 ---
 const { product, solidTagsList } = Astro.props;
 
-// 1. Layout 處理
+// --- 1. 資料處理 ---
 const layout = product.layout || 'vertical'; 
+const images = product.images || [];
+
+// 決定初始 CSS class
 let cardClass = 'haku-card';
 if (layout === 'horizontal') cardClass += ' horizontal';
 if (layout === 'no_image') cardClass += ' horizontal no-image';
 
-// 2. 圖片路徑智慧處理
-let imageUrl = null;
-if (product.images.length > 0) {
-    const rawImg = product.images[0];
-    // 如果是 http 開頭，保持原樣；否則視為本地路徑 (public/)
-    if (rawImg.startsWith('http')) {
-        imageUrl = rawImg;
-    } else {
-        // 確保路徑以 / 開頭
-        imageUrl = rawImg.startsWith('/') ? rawImg : '/' + rawImg;
-    }
-}
+// 圖片路徑處理 helper
+const resolveImgPath = (src) => {
+    if (!src) return '';
+    return src.startsWith('http') ? src : (src.startsWith('/') ? src : '/' + src);
+};
 
-// 3. 狀態與圖示
+// --- 2. 狀態判斷 ---
 const isSoldOut = product.stock === 0;
+// 若是無圖模式或已售完，顯示箭頭；否則顯示購物車
 const actionIcon = (layout === 'no_image' || isSoldOut) ? 'arrow_forward' : 'add_shopping_cart';
-// 只有購物車圖示才需要觸發側邊欄
 const iconClass = (actionIcon === 'add_shopping_cart') ? 'material-symbols-outlined cart-icon cart-trigger' : 'material-symbols-outlined cart-icon';
-
 const displayPrice = product.price > 0 ? `$ ${product.price.toLocaleString()}` : 'Free';
+
+// --- 3. Slider 邏輯 (僅直式且多圖時啟用) ---
+const hasMultipleImages = images.length > 1;
+const showSlider = hasMultipleImages && layout === 'vertical';
+const uniqueID = `slider-${product.id}-${Math.random().toString(36).substr(2, 9)}`;
 ---
 
-<div class={`${cardClass} ${isSoldOut ? 'sold-out' : ''}`}>
+<div class={`${cardClass} ${isSoldOut ? 'sold-out' : ''}`} id={uniqueID}>
     
-    {layout === 'vertical' && (
-        <div class="img-v">
-            {imageUrl ? (
-                <img src={imageUrl} alt={product.name} loading="lazy" />
-            ) : (
-                <span class="material-symbols-outlined" style="font-size:48px;">collections</span>
+    {/* --- 圖片區域 --- */}
+    {layout !== 'no_image' && (
+        <div class={layout === 'vertical' ? 'img-v' : 'img-h'}>
+            
+            {/* 底層 Fallback Icon (當圖片載入前或失敗時顯示) */}
+            <span class="material-symbols-outlined fallback-icon">
+                {layout === 'vertical' ? 'collections' : 'image'}
+            </span>
+
+            {/* 圖片容器 */}
+            {images.length > 0 && (
+                <div class={`slider-track ${showSlider ? 'is-slider' : ''}`}>
+                    {images.map((img, index) => (
+                        <img 
+                            src={resolveImgPath(img)} 
+                            alt={`${product.name} - ${index + 1}`} 
+                            loading="lazy"
+                            class="product-img"
+                            onerror={`this.closest('.haku-card').classList.add('no-image'); this.closest('.haku-card').classList.add('horizontal'); this.closest('.img-v, .img-h').style.display='none';`} 
+                        />
+                    ))}
+                </div>
             )}
-            {isSoldOut && <div class="sold-out-overlay">SOLD OUT</div>}
+
+            {/* 滑動控制器 (僅在直式多圖時顯示) */}
+            {showSlider && (
+                <>
+                    <button class="slider-btn prev" onclick={`document.querySelector('#${uniqueID} .slider-track').scrollBy({left: -200, behavior: 'smooth'})`}>
+                        <span class="material-symbols-outlined">chevron_left</span>
+                    </button>
+                    <button class="slider-btn next" onclick={`document.querySelector('#${uniqueID} .slider-track').scrollBy({left: 200, behavior: 'smooth'})`}>
+                        <span class="material-symbols-outlined">chevron_right</span>
+                    </button>
+                    
+                    <div class="dots">
+                        {images.map((_, idx) => (
+                            <div class={`dot ${idx === 0 ? 'active' : ''}`}></div>
+                        ))}
+                    </div>
+                </>
+            )}
+
+            {/* Sold Out 遮罩 */}
+            {isSoldOut && <div class={`sold-out-overlay ${layout === 'horizontal' ? 'sm' : ''}`}>SOLD</div>}
         </div>
     )}
 
-    {layout === 'horizontal' && (
-        <div class="h-card-img">
-            {imageUrl ? (
-                <img src={imageUrl} alt={product.name} loading="lazy" />
-            ) : (
-                <span class="material-symbols-outlined">image</span>
-            )}
-            {isSoldOut && <div class="sold-out-overlay sm">SOLD</div>}
-        </div>
-    )}
-
+    {/* --- 內容區域 --- */}
     <div class="card-body">
         <div class="tag-group">
             {product.tags.map(tag => {
@@ -60,15 +86,24 @@ const displayPrice = product.price > 0 ? `$ ${product.price.toLocaleString()}` :
                 return <span class={`tag ${isSolid ? 'tag-solid' : 'tag-hollow'}`}>{tag}</span>
             })}
         </div>
+        
         <h3 class="p-name">{product.name}</h3>
         <div class="p-price">{displayPrice}</div>
         
-        <!-- 點擊此圖示會觸發 Layout 中的 JS 打開側邊欄 -->
+        {/* 觸發按鈕 */}
         <span class={iconClass}>{actionIcon}</span>
     </div>
 </div>
 
 <style>
+    /* --- HAKU V5 CSS --- */
+    :root {
+        --haku-ink: #3E2723;
+        --haku-paper: #F5F1E8;
+        --placeholder-bg: #DCD7CE;
+        --placeholder-icon: rgba(62, 39, 35, 0.3);
+    }
+
     .haku-card { 
         background-color: var(--haku-paper); 
         border: 1px solid rgba(62, 39, 35, 0.1); 
@@ -80,40 +115,81 @@ const displayPrice = product.price > 0 ? `$ ${product.price.toLocaleString()}` :
 
     .card-body { padding: 18px; flex-grow: 1; display: flex; flex-direction: column; position: relative; }
     
-    .p-name { font-size: 1rem; font-weight: 700; margin: 0 0 12px 0; padding-right: 30px; color: var(--haku-ink); line-height: 1.4; }
+    .p-name { font-size: 1rem; font-weight: 700; margin: 0 0 12px 0; padding-right: 30px; line-height: 1.4; color: var(--haku-ink); }
     .p-price { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.1rem; margin-top: auto; color: var(--haku-ink); }
+    
     .cart-icon { position: absolute; bottom: 18px; right: 18px; cursor: pointer; color: var(--haku-ink); opacity: 0.8; }
     .cart-icon:hover { opacity: 1; transform: scale(1.1); }
 
+    /* Tags */
     .tag-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
     .tag { font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border: 1px solid var(--haku-ink); border-radius: 2px; text-transform: uppercase; }
     .tag-hollow { color: var(--haku-ink); background: transparent; }
     .tag-solid { color: var(--haku-paper); background: var(--haku-ink); }
 
-    .img-v { 
-        position: relative; width: 100%; aspect-ratio: 1/1; 
-        background: var(--placeholder-bg); color: var(--placeholder-icon);
+    /* Images */
+    .img-v, .img-h { 
+        position: relative; 
+        background: var(--placeholder-bg); 
+        color: var(--placeholder-icon);
         display: flex; justify-content: center; align-items: center; 
+        overflow: hidden;
     }
-    .h-card-img { 
-        width: 120px; flex-shrink: 0; position: relative;
-        background: var(--placeholder-bg); color: var(--placeholder-icon);
-        display: flex; justify-content: center; align-items: center; 
-    }
-    img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .img-v { width: 100%; aspect-ratio: 1/1; }
+    .img-h { width: 120px; flex-shrink: 0; min-height: 100%; }
 
-    .haku-card.horizontal { flex-direction: row; min-height: 130px; }
+    .fallback-icon { font-size: 48px; position: absolute; z-index: 0; }
+
+    /* Slider Track */
+    .slider-track {
+        display: flex; width: 100%; height: 100%;
+        overflow-x: auto; scroll-snap-type: x mandatory;
+        scrollbar-width: none; z-index: 1;
+    }
+    .slider-track::-webkit-scrollbar { display: none; }
+    .product-img {
+        width: 100%; height: 100%; object-fit: cover;
+        flex-shrink: 0; scroll-snap-align: start;
+        background: var(--placeholder-bg);
+    }
+
+    /* Slider Controls */
+    .slider-btn {
+        position: absolute; top: 50%; transform: translateY(-50%);
+        background: rgba(245, 241, 232, 0.9);
+        border: 1px solid var(--haku-ink); border-radius: 50%;
+        width: 28px; height: 28px;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; z-index: 2; opacity: 0; transition: 0.2s;
+        color: var(--haku-ink);
+    }
+    .img-v:hover .slider-btn { opacity: 1; }
+    .prev { left: 8px; }
+    .next { right: 8px; }
+
+    .dots {
+        position: absolute; bottom: 10px; left: 0; width: 100%;
+        display: flex; justify-content: center; gap: 4px; z-index: 2;
+        pointer-events: none;
+    }
+    .dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(62,39,35,0.3); }
+    .dot.active { background: var(--haku-ink); }
+
+    /* Layout Modifiers */
+    .haku-card.horizontal { flex-direction: row; min-height: 140px; }
     .horizontal .card-body { justify-content: center; }
     
     .no-image { border-top: 5px solid var(--haku-ink); }
+    .no-image .img-v, .no-image .img-h { display: none; }
     .no-image .card-body { padding: 25px 18px; }
 
+    /* Sold Out */
     .sold-out { opacity: 0.8; pointer-events: none; }
     .sold-out-overlay {
         position: absolute; top:0; left:0; width:100%; height:100%;
         background: rgba(62,39,35,0.7); color: #FFF;
         display: flex; justify-content: center; align-items: center;
-        font-family: 'Montserrat'; font-weight: 900;
+        font-family: 'Montserrat'; font-weight: 900; z-index: 3;
     }
     .sold-out-overlay.sm { font-size: 0.8rem; }
 </style>
