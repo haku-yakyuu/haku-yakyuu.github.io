@@ -5,40 +5,55 @@ import { getHakuData } from '../utils/api';
 
 const { products, config, solidTagsList } = await getHakuData();
 
-const featuredProducts = products.filter(p => p.isFeatured);
-const allProducts = products; 
+// 1. 精選商品 (Featured) -> 預設直式網格
+const featured = products.filter(p => p.isFeatured);
+
+// 2. 其餘商品分類 (排除精選)
+const others = products.filter(p => !p.isFeatured);
+
+// Helper: 根據內容的 layout 屬性，決定要用哪種網格 Class
+function getGridClass(items) {
+    if (items.length === 0) return 'grid-vertical';
+    const type = items[0].layout; // 以第一筆資料為準
+    if (type === 'horizontal') return 'grid-horizontal-img';   // PC 3欄
+    if (type === 'no_image') return 'grid-horizontal-noimg';   // PC 4欄 (高密度)
+    return 'grid-vertical';                                    // PC 4欄
+}
+
+// 為了展示效果，我們將商品依照 "Layout Type" 分組 (或是你也可以維持依照 Category 分組)
+// 這裡依照 Category 分組，但會自動偵測該 Category 適合的網格
+const categories = [...new Set(others.map(p => p.category))];
 ---
 
 <Layout title="Home" siteTitle={config.site_title}>
 
-    {featuredProducts.length > 0 && (
+    {/* --- 精選區塊 (Vertical Grid) --- */}
+    {featured.length > 0 && (
         <section>
             <h2>FEATURED <span>精選商品</span></h2>
             <div class="p-grid grid-vertical">
-                {featuredProducts.map(product => (
+                {featured.map(product => (
                     <ProductCard product={product} solidTagsList={solidTagsList} />
                 ))}
             </div>
         </section>
     )}
 
-    <section>
-        <h2>ALL PRODUCTS <span>全商品一覧</span></h2>
-        <div class="p-grid grid-mixed">
-            {allProducts.map(product => (
-                <ProductCard product={product} solidTagsList={solidTagsList} />
-            ))}
-        </div>
-    </section>
+    {/* --- 分類區塊 (自動適應 V5 網格密度) --- */}
+    {categories.map(cat => {
+        const catItems = others.filter(p => p.category === cat);
+        const gridClass = getGridClass(catItems);
+
+        return (
+            <section>
+                <h2>{cat} <span>COLLECTION</span></h2>
+                <div class={`p-grid ${gridClass}`}>
+                    {catItems.map(product => (
+                        <ProductCard product={product} solidTagsList={solidTagsList} />
+                    ))}
+                </div>
+            </section>
+        );
+    })}
 
 </Layout>
-
-<style>
-    .p-grid { display: grid; gap: 20px; width: 100%; }
-    .grid-vertical { grid-template-columns: repeat(2, 1fr); }
-    @media (min-width: 1024px) { .grid-vertical { grid-template-columns: repeat(4, 1fr); gap: 30px; } }
-    .grid-mixed { grid-template-columns: 1fr; }
-    @media (min-width: 768px) {
-        .grid-mixed { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
-    }
-</style>
