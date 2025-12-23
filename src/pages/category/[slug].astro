@@ -1,38 +1,57 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import ProductCard from '../../components/ProductCard.astro';
-import { getProducts } from '../../utils/api';
+import { getHakuData } from '../../utils/api';
 
 export async function getStaticPaths() {
-  const products = await getProducts();
+  const { products } = await getHakuData();
   const uniqueCategories = [...new Set(products.map(p => p.category))];
 
   return uniqueCategories.map(cat => {
-    const filteredProducts = products.filter(p => p.category === cat);
     return {
       params: { slug: cat },
-      props: { categoryName: cat, products: filteredProducts },
+      props: { categoryName: cat },
     };
   });
 }
 
-const { categoryName, products } = Astro.props;
+const { categoryName } = Astro.props;
+const { products, config, solidTagsList } = await getHakuData();
+
+const categoryProducts = products.filter(p => p.category === categoryName);
 ---
 
-<Layout title={categoryName}>
-    <div class="page-header">
+<Layout title={categoryName} siteTitle={config.site_title}>
+    <header class="cat-header">
         <h1>{categoryName}</h1>
-        <span class="count">共 {products.length} 項商品</span>
-    </div>
-    <div class="grid">
-        {products.map(product => (
-            <ProductCard product={product} />
+        <span>/ {categoryProducts.length} ITEMS</span>
+    </header>
+    
+    <div class="p-grid grid-mixed">
+        {categoryProducts.map(product => (
+            <ProductCard 
+                product={product} 
+                solidTagsList={solidTagsList} 
+            />
         ))}
     </div>
 </Layout>
 
 <style>
-    .page-header { display: flex; align-items: baseline; margin-bottom: 30px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-    .page-header h1 { margin: 0; margin-right: 15px; }
-    .count { color: #888; font-size: 0.9rem; }
+    .cat-header {
+        margin-bottom: 40px;
+        display: flex;
+        align-items: baseline;
+        gap: 15px;
+        border-bottom: 2px solid var(--haku-ink);
+        padding-bottom: 10px;
+    }
+    .cat-header h1 { margin: 0; font-size: 2rem; font-weight: 900; }
+    .cat-header span { font-weight: bold; opacity: 0.7; }
+
+    .p-grid { display: grid; gap: 20px; width: 100%; }
+    .grid-mixed { grid-template-columns: 1fr; }
+    @media (min-width: 768px) {
+        .grid-mixed { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
+    }
 </style>
