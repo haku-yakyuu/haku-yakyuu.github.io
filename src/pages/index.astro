@@ -5,41 +5,39 @@ import { getHakuData } from '../utils/api';
 
 const { products, config, solidTagsList } = await getHakuData();
 
-// 1. 精選區 (Featured) -> 對應 grid-v (Vertical)
-// 這裡我們抓取所有 layout 為 vertical 且為精選的商品，或單純抓 isFeatured
-const featuredItems = products.filter(p => p.isFeatured && p.layout === 'vertical').slice(0, 4);
+// --- 資料分組邏輯 ---
+// 1. 直式卡片 (Grid Vertical)
+// 包含: isFeatured=true 的商品，以及 layout='vertical' 的商品
+const verticalItems = products.filter(p => p.layout === 'vertical');
+const featuredItems = verticalItems.filter(p => p.isFeatured).slice(0, 4);
+const otherVerticals = verticalItems.filter(p => !p.isFeatured);
 
-// 2. 收藏配件區 (Collector's Essentials) -> 對應 grid-h-img (Horizontal with Image)
-// 假設這類商品在試算表被設為 layout: horizontal
-const essentialItems = products.filter(p => p.layout === 'horizontal').slice(0, 3);
+// 2. 橫式有圖 (Grid Horizontal Img)
+const horizontalImgItems = products.filter(p => p.layout === 'horizontal');
 
-// 3. 服務區 (Services) -> 對應 grid-h-noimg (No Image)
-// 假設這類商品在試算表被設為 layout: no_image
-const serviceItems = products.filter(p => p.layout === 'no_image').slice(0, 4);
-
-// 備用：若上述篩選為空，為避免空白，可顯示一些預設資料 (除錯用)
-const allItems = products;
+// 3. 橫式無圖 (Grid Horizontal No-Img)
+const horizontalNoImgItems = products.filter(p => p.layout === 'no_image');
 ---
 
 <Layout title="Home" siteTitle={config.site_title}>
 
     <!-- Hero Section -->
     <header class="hero">
-        <h1>CAPTURE THE MOMENT</h1>
-        <p>從球場的紅土到收藏盒的溫度。HAKU 為您挑選每一顆承載歷史與紀錄的棒球，延續那份不滅的野球魂。</p>
+        <h1>{config.site_title || "CAPTURE THE MOMENT"}</h1>
+        <p>從球場的紅土到收藏盒的溫度。HAKU 為您挑選每一顆承載歷史與紀錄的棒球。</p>
         <a href="/category/紀念球" class="hero-btn">探索選品</a>
     </header>
 
     <div class="container">
         
-        <!-- Section 1: FEATURED ARRIVALS (Vertical Grid) -->
+        {/* --- 區塊 1: 精選 (直式 - PC 4欄) --- */}
         {featuredItems.length > 0 && (
             <section>
                 <div class="sec-header">
                     <h2>FEATURED ARRIVALS</h2>
                     <a href="/category/紀念球" style="font-size: 0.8rem; font-weight: 700;">VIEW ALL →</a>
                 </div>
-                <div class="grid-v">
+                <div class="p-grid grid-vertical">
                     {featuredItems.map(p => (
                         <ProductCard product={p} solidTagsList={solidTagsList} />
                     ))}
@@ -47,54 +45,64 @@ const allItems = products;
             </section>
         )}
 
-        <!-- Section 2: COLLECTOR'S ESSENTIALS (Horizontal Img Grid) -->
-        {essentialItems.length > 0 && (
+        {/* --- 區塊 2: 職人/配件 (橫式有圖 - PC 3欄) --- */}
+        {horizontalImgItems.length > 0 && (
             <section>
                 <div class="sec-header">
                     <h2>COLLECTOR'S ESSENTIALS</h2>
                 </div>
-                <div class="grid-h-img">
-                    {essentialItems.map(p => (
+                <div class="p-grid grid-horizontal-img">
+                    {horizontalImgItems.map(p => (
                         <ProductCard product={p} solidTagsList={solidTagsList} />
                     ))}
                 </div>
             </section>
         )}
 
-        <!-- Section 3: SERVICES (Horizontal No-Img Grid) -->
-        {serviceItems.length > 0 && (
+        {/* --- 區塊 3: 服務 (橫式無圖 - PC 4欄) --- */}
+        {horizontalNoImgItems.length > 0 && (
             <section>
                 <div class="sec-header">
                     <h2>SERVICES</h2>
                 </div>
-                <div class="grid-h-noimg">
-                    {serviceItems.map(p => (
+                <div class="p-grid grid-horizontal-noimg">
+                    {horizontalNoImgItems.map(p => (
                         <ProductCard product={p} solidTagsList={solidTagsList} />
                     ))}
                 </div>
             </section>
         )}
 
-        <!-- 除錯區塊：若你的試算表 layout 設定還沒改好，這裡會顯示所有商品 -->
-        {(featuredItems.length === 0 && essentialItems.length === 0 && serviceItems.length === 0) && (
-             <section>
-                <div class="sec-header"><h2>ALL PRODUCTS (DEBUG MODE)</h2></div>
-                <div class="grid-v">
-                    {allItems.map(p => <ProductCard product={p} solidTagsList={solidTagsList} />)}
+        {/* --- 區塊 4: 其他直式商品 (若有) --- */}
+        {otherVerticals.length > 0 && (
+            <section>
+                <div class="sec-header">
+                    <h2>MORE COLLECTIONS</h2>
+                </div>
+                <div class="p-grid grid-vertical">
+                    {otherVerticals.map(p => (
+                        <ProductCard product={p} solidTagsList={solidTagsList} />
+                    ))}
                 </div>
             </section>
+        )}
+
+        {/* 除錯：若無任何資料 */}
+        {products.length === 0 && (
+             <div style="text-align:center; padding: 100px 0; opacity: 0.5;">
+                <p>無商品資料，請檢查 Google Sheets 設定。</p>
+            </div>
         )}
 
     </div>
 </Layout>
 
 <style>
-    /* Hero Section Styles */
+    /* Hero Styles */
     .hero {
         height: 70vh; display: flex; flex-direction: column; justify-content: center; align-items: center;
         text-align: center; background-color: var(--haku-ink); color: var(--haku-paper);
-        padding: 0 10%;
-        margin-bottom: var(--section-gap); /* Hero 到底下內容的間距 */
+        padding: 0 10%; margin-bottom: var(--section-gap);
     }
     .hero h1 { font-family: 'Montserrat', sans-serif; font-size: 3.5rem; margin: 0; line-height: 1; }
     .hero p { max-width: 600px; margin: 20px 0; font-size: 1.1rem; opacity: 0.8; }
@@ -103,8 +111,6 @@ const allItems = products;
         font-weight: 700; transition: 0.3s; margin-top: 20px; color: var(--haku-paper);
     }
     .hero-btn:hover { background: var(--haku-paper); color: var(--haku-ink); }
-    
-    @media (max-width: 768px) {
-        .hero h1 { font-size: 2.5rem; }
-    }
+
+    @media (max-width: 768px) { .hero h1 { font-size: 2.5rem; } }
 </style>
