@@ -1,85 +1,88 @@
 ---
+// src/components/Sidebar.astro
+import { fetchProducts } from '../utils/api';
+
+// 抓取分類資料
+const { products } = await fetchProducts();
+const categories = [...new Set(products.map((p: any) => p.category))];
 ---
-<div id="cart-overlay" class="cart-overlay"></div>
 
-<aside id="cart-sidebar" class="cart-sidebar">
-    <div class="cart-header">
-        <h2>SHOPPING CART <span id="cart-count">(0)</span></h2>
-        <button id="close-cart" class="close-btn">
-            <span class="material-symbols-outlined">close</span>
-        </button>
-    </div>
+<aside id="sidebar-menu" class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">MENU</div>
+    <span class="material-symbols-outlined close-btn" id="close-menu">close</span>
+  </div>
+  
+  <div class="sidebar-content">
+    <ul class="menu-list">
+      <li><a href="/shop">ALL PRODUCTS <span>所有選品</span></a></li>
+      {categories.map((cat: unknown) => (
+        <li>
+          <a href={`/shop?category=${cat}`}>{String(cat)}</a>
+        </li>
+      ))}
+    </ul>
 
-    <div class="cart-body">
-        <!-- 空購物車狀態 (預設) -->
-        <div class="empty-state">
-            <span class="material-symbols-outlined icon">shopping_bag</span>
-            <p>您的購物車目前是空的</p>
-            <a href="/" class="shop-btn">繼續選購</a>
-        </div>
-        
-        <!-- 未來可在此插入動態購物車列表 -->
+    <div class="menu-footer">
+       <a href="/about">關於我們</a>
+       <a href="/policy">運送政策</a>
     </div>
-
-    <div class="cart-footer">
-        <div class="total-row">
-            <span>SUBTOTAL</span>
-            <span class="total-price">$ 0</span>
-        </div>
-        <button class="checkout-btn">CHECKOUT</button>
-    </div>
+  </div>
 </aside>
 
+<div id="overlay-menu" class="overlay"></div>
+
 <style>
-    /* 遮罩層 */
-    .cart-overlay {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(62, 39, 35, 0.6); z-index: 1001;
-        opacity: 0; visibility: hidden; transition: 0.3s;
-        backdrop-filter: blur(2px);
-    }
-    .cart-overlay.open { opacity: 1; visibility: visible; }
+  :root { --haku-ink: #3E2723; --haku-paper: #F5F1E8; }
+  
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 300px;
+    background: var(--haku-paper); color: var(--haku-ink);
+    z-index: 2000; transform: translateX(-100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex; flex-direction: column; border-right: 1px solid rgba(62,39,35,0.1);
+  }
+  .sidebar.open { transform: translateX(0); }
+  
+  .sidebar-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(62,39,35,0.1); }
+  .logo { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.2rem; }
+  .close-btn { cursor: pointer; }
 
-    /* 側邊欄本體 */
-    .cart-sidebar {
-        position: fixed; top: 0; right: -400px; width: 100%; max-width: 400px; height: 100%;
-        background: var(--haku-paper); color: var(--haku-ink);
-        z-index: 1002; transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        display: flex; flex-direction: column;
-        border-left: 1px solid rgba(62, 39, 35, 0.1);
-        box-shadow: -5px 0 30px rgba(0,0,0,0.1);
-    }
-    .cart-sidebar.open { right: 0; }
+  .sidebar-content { padding: 40px 20px; flex-grow: 1; display: flex; flex-direction: column; }
+  .menu-list { list-style: none; padding: 0; }
+  .menu-list li { margin-bottom: 20px; }
+  .menu-list a { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1.1rem; display: block; text-decoration: none; color: var(--haku-ink); }
+  .menu-list a span { font-family: 'Noto Sans TC'; font-weight: 400; font-size: 0.8rem; margin-left: 10px; opacity: 0.6; }
+  
+  .menu-footer { margin-top: auto; border-top: 1px solid rgba(62,39,35,0.1); padding-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .menu-footer a { font-size: 0.9rem; opacity: 0.7; }
 
-    /* Header */
-    .cart-header {
-        padding: 20px 30px;
-        border-bottom: 1px solid rgba(62, 39, 35, 0.1);
-        display: flex; justify-content: space-between; align-items: center;
-    }
-    .cart-header h2 { font-family: 'Montserrat', sans-serif; font-size: 1.2rem; margin: 0; font-weight: 900; }
-    .close-btn { background: none; border: none; cursor: pointer; color: var(--haku-ink); padding: 5px; }
-    .close-btn:hover { transform: rotate(90deg); transition: 0.3s; }
-
-    /* Body */
-    .cart-body { flex: 1; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; }
-    
-    .empty-state { text-align: center; margin: auto; opacity: 0.6; }
-    .empty-state .icon { font-size: 48px; margin-bottom: 15px; display: block; }
-    .shop-btn { 
-        display: inline-block; margin-top: 20px; 
-        border-bottom: 1px solid var(--haku-ink); padding-bottom: 2px; 
-        font-weight: 700; font-size: 0.9rem;
-    }
-
-    /* Footer */
-    .cart-footer { padding: 30px; border-top: 1px solid rgba(62, 39, 35, 0.1); background: #fdfbf7; }
-    .total-row { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 20px; font-family: 'Montserrat'; }
-    .total-price { font-size: 1.2rem; }
-    .checkout-btn {
-        width: 100%; padding: 15px; background: var(--haku-ink); color: var(--haku-paper);
-        border: none; font-family: 'Montserrat'; font-weight: 900; letter-spacing: 1px;
-        cursor: pointer; transition: 0.2s;
-    }
-    .checkout-btn:hover { background: #5d4037; }
+  .overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(62,39,35,0.4); backdrop-filter: blur(2px);
+    z-index: 1500; opacity: 0; pointer-events: none; transition: opacity 0.4s;
+  }
+  .overlay.active { opacity: 1; pointer-events: auto; }
 </style>
+
+<script>
+  import { isMenuOpen } from '../store';
+
+  const sidebar = document.getElementById('sidebar-menu');
+  const overlay = document.getElementById('overlay-menu');
+  const closeBtn = document.getElementById('close-menu');
+
+  // 訂閱狀態改變 UI
+  isMenuOpen.subscribe(isOpen => {
+    if (isOpen) {
+      sidebar?.classList.add('open');
+      overlay?.classList.add('active');
+    } else {
+      sidebar?.classList.remove('open');
+      overlay?.classList.remove('active');
+    }
+  });
+
+  // 關閉事件
+  closeBtn?.addEventListener('click', () => isMenuOpen.set(false));
+  overlay?.addEventListener('click', () => isMenuOpen.set(false));
+</script>
