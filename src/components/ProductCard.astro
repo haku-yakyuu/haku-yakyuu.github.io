@@ -1,108 +1,136 @@
 ---
-// 接收參數
-const { product, solidTagsList = [] } = Astro.props;
+interface Props {
+  product: any; // 暫用 any 以容錯資料來源結構
+  config: {
+    solid_tags: string; // 例如 "新品,熱銷"
+  };
+}
 
-// --- 1. 資料防護與標準化 ---
+const { product, config } = Astro.props;
+
+// --- 1. 資料防護與智慧正規化 (Data Normalization) ---
+// 這裡解決最棘手的問題：GAS 資料可能欄位錯置，我們在前端自動校正
+
 const safeProduct = product || {};
+const id = safeProduct.id || Math.random().toString(36).substr(2, 9);
 const name = safeProduct.name || '未命名商品';
 const price = safeProduct.price || 0;
-const tags = Array.isArray(safeProduct.tags) ? safeProduct.tags : [];
 const stock = safeProduct.stock !== undefined ? safeProduct.stock : 1;
-const rawLayout = safeProduct.layout || 'vertical';
 
-// --- 2. 圖片路徑處理 (智慧修復版) ---
+// A. 處理 Tags
+// 將逗號分隔字串轉換為陣列，並計算哪些 Tag 需要實心樣式
+const solidTagsList = (config?.solid_tags || '').split(',').map(t => t.trim());
+let tags = [];
+if (Array.isArray(safeProduct.tags)) {
+    tags = safeProduct.tags;
+} else if (typeof safeProduct.tags === 'string') {
+    tags = safeProduct.tags.split(',').map(t => t.trim()).filter(t => t);
+}
+
+// B. 處理 Layout 與 Images (關鍵修正)
+let rawLayout = safeProduct.layout;
+let rawImages = safeProduct.images;
+
+// 版型關鍵字白名單
+const layoutKeywords = ['vertical', 'horizontal', 'no_image'];
+// 偵測是否錯置：如果 images 欄位內容竟然是 'vertical' 這種關鍵字
+const isDataSwapped = typeof rawImages === 'string' && layoutKeywords.includes(rawImages);
+
+let finalLayout = 'vertical';
+let finalImagesList = [];
+
+if (isDataSwapped) {
+    // 狀況一：資料錯置 (GAS 常見) -> 交換回來
+    finalLayout = rawImages; 
+    // 此時 rawLayout 裡面裝的其實是圖片網址字串
+    if (typeof rawLayout === 'string' && rawLayout.trim() !== '') {
+        finalImagesList = rawLayout.split(',').map(s => s.trim());
+    }
+} else {
+    // 狀況二：資料正常
+    finalLayout = rawLayout || 'vertical';
+    if (typeof rawImages === 'string' && rawImages.trim() !== '') {
+        finalImagesList = rawImages.split(',').map(s => s.trim());
+    } else if (Array.isArray(rawImages)) {
+        finalImagesList = rawImages;
+    }
+}
+
+// C. 圖片路徑解析 Helper (支援相對路徑與外部連結)
 const resolveImgPath = (src) => {
     if (!src || typeof src !== 'string') return '';
-    const trimmedSrc = src.trim();
-
-    // A. 外部連結直接回傳
-    if (trimmedSrc.startsWith('http') || trimmedSrc.startsWith('data:')) return trimmedSrc;
-
-    // B. 本地路徑處理
-    let cleanPath = trimmedSrc;
-    if (cleanPath.startsWith('./')) cleanPath = cleanPath.slice(2);
-    if (cleanPath.startsWith('public/')) cleanPath = cleanPath.slice(7); // 修正常見路徑錯誤
-    if (cleanPath.startsWith('/')) cleanPath = cleanPath.slice(1);
-
-    const baseUrl = import.meta.env.BASE_URL;
-    const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-
-    return `${cleanBase}${cleanPath}`;
+    const trimmed = src.trim();
+    if (trimmed.startsWith('http') || trimmed.startsWith('data:')) return trimmed;
+    
+    let clean = trimmed;
+    if (clean.startsWith('./')) clean = clean.slice(2);
+    if (clean.startsWith('public/')) clean = clean.slice(7);
+    if (clean.startsWith('/')) clean = clean.slice(1);
+    
+    const base = import.meta.env.BASE_URL;
+    const cleanBase = base.endsWith('/') ? base : `${base}/`;
+    return `${cleanBase}${clean}`;
 };
 
-// 處理圖片陣列 (關鍵修正：過濾髒資料)
-const rawImages = Array.isArray(safeProduct.images) ? safeProduct.images : [];
-const images = rawImages
-    .filter(img => typeof img === 'string' && img.trim() !== '')
-    // *** 這裡解決 404 問題：踢除誤入的排版關鍵字 ***
-    .filter(img => !['vertical', 'horizontal', 'no_image'].includes(img.trim()))
-    .map(img => resolveImgPath(img));
+// 產生最終圖片陣列
+const images = finalImagesList.map(resolveImgPath).filter(img => img !== '');
 
-// --- 3. 版型判斷 ---
+// --- 2. 顯示邏輯判定 ---
+
+// 若無圖片，強制轉為 no_image 模式
+const layoutMode = (images.length === 0) ? 'no_image' : finalLayout;
+
+// 價格格式化
+const formattedPrice = new Intl.NumberFormat('zh-TW', { 
+    style: 'currency', 
+    currency: 'TWD', 
+    maximumFractionDigits: 0 
+}).format(price);
+
+// 狀態判斷
 const isSoldOut = stock === 0;
-// 如果過濾後沒有有效圖片，自動切換為無圖模式
-const layout = (images.length === 0) ? 'no_image' : rawLayout;
+const actionIcon = (layoutMode === 'no_image' || isSoldOut) ? 'arrow_forward' : 'add_shopping_cart';
 
+// CSS Class 組合
 let cardClass = 'haku-card';
-if (layout === 'horizontal') cardClass += ' horizontal';
-if (layout === 'no_image') cardClass += ' horizontal no-image';
+if (layoutMode === 'horizontal') cardClass += ' horizontal';
+if (layoutMode === 'no_image') cardClass += ' horizontal no-image';
 
-// Icon 邏輯
-const actionIcon = (layout === 'no_image' || isSoldOut) ? 'arrow_forward' : 'add_shopping_cart';
-const iconClass = (actionIcon === 'add_shopping_cart') ? 'material-symbols-outlined cart-icon cart-trigger' : 'material-symbols-outlined cart-icon';
-const displayPrice = price > 0 ? `$ ${price.toLocaleString()}` : 'Free';
-
-// Slider 邏輯
-const showSlider = images.length > 1 && layout === 'vertical';
-const uniqueID = `slider-${safeProduct.id || Math.random().toString(36).substr(2, 9)}`;
+// 輪播邏輯：只有直式且多於一張圖才開啟輪播
+const enableCarousel = layoutMode === 'vertical' && images.length > 1;
+const uniqueID = `card-${id}-${Math.random().toString(36).substr(2, 5)}`;
 ---
 
-<div class={`${cardClass} ${isSoldOut ? 'sold-out' : ''}`} id={uniqueID}>
+<div class={cardClass} id={uniqueID} data-carousel={enableCarousel}>
     
-    {/* --- 圖片區域 --- */}
-    {layout !== 'no_image' && (
-        <div class={layout === 'vertical' ? 'img-v' : 'img-h'}>
+    {/* --- 圖片區域 (No Image 模式不顯示) --- */}
+    {layoutMode !== 'no_image' && (
+        <div class={`img-box ${layoutMode === 'vertical' ? 'img-v' : 'img-h'} ${enableCarousel ? 'js-carousel' : ''}`}>
             
-            {/* 1. 底層預設圖示 (Fallback) */}
-            <span class="material-symbols-outlined fallback-icon">
-                {layout === 'vertical' ? 'collections' : 'image'}
-            </span>
-
-            {/* 2. 圖片容器 */}
-            {images.length > 0 && (
-                <div class={`slider-track ${showSlider ? 'is-slider' : ''}`}>
-                    {images.map((imgSrc, index) => (
-                        <img 
-                            src={imgSrc} 
-                            alt={`${name} - ${index + 1}`} 
-                            loading="lazy"
-                            class="product-img"
-                            /* 圖片載入失敗時變透明，讓底下的 fallback icon 顯露出來 */
-                            onerror="this.style.opacity='0';" 
-                        />
+            <div class="carousel-wrap">
+                <div class="carousel-track">
+                    {/* Horizontal 模式只顯示第一張，Vertical 顯示全部 */}
+                    {(layoutMode === 'horizontal' ? [images[0]] : images).map((img, idx) => (
+                        <img src={img} alt={`${name}-${idx}`} loading="lazy" />
                     ))}
                 </div>
-            )}
 
-            {/* 3. Slider 控制器 */}
-            {showSlider && (
-                <>
-                    <button class="slider-btn prev" aria-label="Previous" onclick={`document.querySelector('#${uniqueID} .slider-track').scrollBy({left: -200, behavior: 'smooth'})`}>
-                        <span class="material-symbols-outlined">chevron_left</span>
-                    </button>
-                    <button class="slider-btn next" aria-label="Next" onclick={`document.querySelector('#${uniqueID} .slider-track').scrollBy({left: 200, behavior: 'smooth'})`}>
-                        <span class="material-symbols-outlined">chevron_right</span>
-                    </button>
-                    
-                    <div class="dots">
-                        {images.map((_, idx) => (
-                            <div class={`dot ${idx === 0 ? 'active' : ''}`}></div>
-                        ))}
-                    </div>
-                </>
-            )}
-
-            {isSoldOut && <div class={`sold-out-overlay ${layout === 'horizontal' ? 'sm' : ''}`}>SOLD</div>}
+                {/* 輪播控制器 (僅 Vertical 多圖時顯示) */}
+                {enableCarousel && (
+                    <>
+                        <button class="carousel-btn btn-prev material-symbols-outlined">chevron_left</button>
+                        <button class="carousel-btn btn-next material-symbols-outlined">chevron_right</button>
+                        <div class="carousel-dots">
+                            {images.map((_, idx) => (
+                                <div class={`dot ${idx === 0 ? 'active' : ''}`} data-index={idx}></div>
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
+            
+            {/* 售完遮罩 */}
+            {isSoldOut && <div class="sold-out-overlay">SOLD</div>}
         </div>
     )}
 
@@ -115,112 +143,280 @@ const uniqueID = `slider-${safeProduct.id || Math.random().toString(36).substr(2
             })}
         </div>
         
-        <h3 class="p-name">{name}</h3>
-        <div class="p-price">{displayPrice}</div>
+        <h3 class="p-name" title={name}>{name}</h3>
+        <div class="p-price">{formattedPrice}</div>
         
-        <span class={iconClass}>{actionIcon}</span>
+        <span class="material-symbols-outlined cart-icon">{actionIcon}</span>
     </div>
 </div>
 
 <style>
-    /* --- HAKU V5 CSS --- */
+    /* --- CSS 變數定義 (若全域已定義可移除 :root) --- */
     :root {
         --haku-ink: #3E2723;
         --haku-paper: #F5F1E8;
         --placeholder-bg: #DCD7CE;
-        --placeholder-icon: rgba(62, 39, 35, 0.3);
     }
 
-    .haku-card { 
-        background-color: var(--haku-paper); 
-        border: 1px solid rgba(62, 39, 35, 0.1); 
-        display: flex; flex-direction: column; 
-        position: relative; overflow: hidden; 
-        transition: transform 0.2s;
-        min-height: 200px; /* 確保即使資料缺少也有基本高度 */
+    /* --- 卡片結構 --- */
+    .haku-card {
+        background-color: var(--haku-paper);
+        border: 1px solid rgba(62, 39, 35, 0.1);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+        text-decoration: none;
+        color: var(--haku-ink);
+        transition: transform 0.3s ease;
+        height: 100%;
+        font-family: 'Noto Sans TC', sans-serif;
     }
-    .haku-card:hover { transform: translateY(-4px); box-shadow: 0 10px 20px rgba(62,39,35,0.08); }
+    .haku-card:hover { transform: translateY(-5px); }
 
-    .card-body { padding: 18px; flex-grow: 1; display: flex; flex-direction: column; position: relative; }
-    
-    .p-name { font-size: 1rem; font-weight: 700; margin: 0 0 12px 0; padding-right: 30px; line-height: 1.4; color: var(--haku-ink); }
-    .p-price { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.1rem; margin-top: auto; color: var(--haku-ink); }
-    
-    .cart-icon { position: absolute; bottom: 18px; right: 18px; cursor: pointer; color: var(--haku-ink); opacity: 0.8; }
-    .cart-icon:hover { opacity: 1; transform: scale(1.1); }
+    .card-body {
+        padding: 18px;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
 
-    /* Tags */
+    /* --- 標題與價格 --- */
+    .p-name {
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 0 0 12px 0;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        width: 100%;
+        color: var(--haku-ink);
+    }
+
+    .p-price {
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 900;
+        font-size: 1.1rem;
+        margin-top: auto;
+    }
+
+    .cart-icon {
+        position: absolute;
+        bottom: 18px;
+        right: 18px;
+        opacity: 0.8;
+        cursor: pointer;
+        z-index: 10;
+        user-select: none;
+    }
+    .cart-icon:hover { opacity: 1; }
+
+    /* --- 標籤系統 --- */
     .tag-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-    .tag { font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border: 1px solid var(--haku-ink); border-radius: 2px; text-transform: uppercase; }
+    .tag {
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border: 1px solid var(--haku-ink);
+        border-radius: 2px;
+        text-transform: uppercase;
+    }
     .tag-hollow { color: var(--haku-ink); background: transparent; }
     .tag-solid { color: var(--haku-paper); background: var(--haku-ink); }
 
-    /* Images */
-    .img-v, .img-h { 
-        position: relative; 
-        background: var(--placeholder-bg); 
-        color: var(--placeholder-icon);
-        display: flex; justify-content: center; align-items: center; 
+    /* --- 圖片容器與版型 --- */
+    .img-box {
+        background: var(--placeholder-bg);
         overflow: hidden;
+        position: relative;
     }
-    .img-v { width: 100%; aspect-ratio: 1/1; }
-    .img-h { width: 120px; flex-shrink: 0; min-height: 100%; }
+    .img-v { aspect-ratio: 1/1; width: 100%; }
+    .img-h { width: 110px; height: 100%; flex-shrink: 0; }
 
-    .fallback-icon { font-size: 48px; position: absolute; z-index: 0; }
-
-    /* Slider Track */
-    .slider-track {
-        display: flex; width: 100%; height: 100%;
-        overflow-x: auto; scroll-snap-type: x mandatory;
-        scrollbar-width: none; z-index: 1;
+    /* --- 輪播結構 --- */
+    .carousel-wrap { width: 100%; height: 100%; position: relative; }
+    .carousel-track {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+        cursor: grab;
     }
-    .slider-track::-webkit-scrollbar { display: none; }
+    .carousel-track::-webkit-scrollbar { display: none; }
     
-    .product-img {
-        width: 100%; height: 100%; object-fit: cover;
-        flex-shrink: 0; scroll-snap-align: start;
-        background: transparent;
-        position: relative; z-index: 1;
-        transition: opacity 0.3s;
+    .carousel-track img {
+        flex: 0 0 100%;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        scroll-snap-align: start;
     }
 
-    /* Slider Controls */
-    .slider-btn {
-        position: absolute; top: 50%; transform: translateY(-50%);
-        background: rgba(245, 241, 232, 0.9);
-        border: 1px solid var(--haku-ink); border-radius: 50%;
-        width: 28px; height: 28px;
-        display: flex; align-items: center; justify-content: center;
-        cursor: pointer; z-index: 2; opacity: 0; transition: 0.2s;
+    /* --- 輪播按鈕 --- */
+    .carousel-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(255,255,255,0.9);
+        border: none;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 5;
+        opacity: 0;
+        transition: opacity 0.3s;
         color: var(--haku-ink);
     }
-    .img-v:hover .slider-btn { opacity: 1; }
-    .prev { left: 8px; }
-    .next { right: 8px; }
+    .btn-prev { left: 10px; }
+    .btn-next { right: 10px; }
+    
+    /* 僅在支援 Hover 的裝置 (PC) 顯示按鈕 */
+    @media (hover: hover) {
+        .haku-card:hover .carousel-btn { opacity: 1; }
+    }
 
-    .dots {
-        position: absolute; bottom: 10px; left: 0; width: 100%;
-        display: flex; justify-content: center; gap: 4px; z-index: 2;
+    /* --- 指示點 --- */
+    .carousel-dots {
+        position: absolute;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 5px;
+        z-index: 5;
         pointer-events: none;
     }
-    .dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(62,39,35,0.3); }
-    .dot.active { background: var(--haku-ink); }
+    .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.6);
+        transition: all 0.3s;
+    }
+    .dot.active {
+        background: #FFF;
+        width: 12px;
+        border-radius: 3px;
+    }
 
-    /* Layout Modifiers */
+    /* --- 特殊版型修正 --- */
     .haku-card.horizontal { flex-direction: row; min-height: 140px; }
     .horizontal .card-body { justify-content: center; }
     
     .no-image { border-top: 5px solid var(--haku-ink); }
-    .no-image .img-v, .no-image .img-h { display: none; }
-    .no-image .card-body { padding: 25px 18px; }
 
-    /* Sold Out */
-    .sold-out { opacity: 0.8; pointer-events: none; }
+    /* --- 售完遮罩 --- */
     .sold-out-overlay {
         position: absolute; top:0; left:0; width:100%; height:100%;
         background: rgba(62,39,35,0.7); color: #FFF;
         display: flex; justify-content: center; align-items: center;
         font-family: 'Montserrat'; font-weight: 900; z-index: 3;
+        font-size: 1.2rem;
+        letter-spacing: 2px;
     }
-    .sold-out-overlay.sm { font-size: 0.8rem; }
 </style>
+
+<script>
+    // 封裝輪播邏輯，避免全域變數汙染
+    class HakuCarousel {
+        constructor(element) {
+            this.container = element;
+            this.track = element.querySelector('.carousel-track');
+            this.dots = element.querySelectorAll('.dot');
+            this.nextBtn = element.querySelector('.btn-next');
+            this.prevBtn = element.querySelector('.btn-prev');
+            
+            if (!this.track || this.track.children.length <= 1) return;
+
+            this.total = this.track.children.length;
+            this.isDragging = false;
+            
+            this.init();
+        }
+
+        init() {
+            // 監聽滾動以更新 Dots (支援手勢滑動)
+            this.track.addEventListener('scroll', () => this.updateUI(), { passive: true });
+            
+            // 按鈕點擊 (支援無限循環)
+            if (this.nextBtn) {
+                this.nextBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.navigate('next');
+                });
+            }
+            if (this.prevBtn) {
+                this.prevBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.navigate('prev');
+                });
+            }
+        }
+
+        updateUI() {
+            // 計算目前是第幾張圖 (四捨五入)
+            const index = Math.round(this.track.scrollLeft / this.track.offsetWidth);
+            this.dots.forEach((dot, i) => {
+                dot.classList.toggle('active', i === index);
+            });
+        }
+
+        navigate(direction) {
+            const width = this.track.offsetWidth;
+            const currentScroll = this.track.scrollLeft;
+            const currentIndex = Math.round(currentScroll / width);
+            
+            let targetIndex;
+
+            if (direction === 'next') {
+                // 無限循環：如果在最後一張，跳回第一張
+                if (currentIndex >= this.total - 1) {
+                    targetIndex = 0;
+                } else {
+                    targetIndex = currentIndex + 1;
+                }
+            } else {
+                // 無限循環：如果在第一張，跳到最後一張
+                if (currentIndex <= 0) {
+                    targetIndex = this.total - 1;
+                } else {
+                    targetIndex = currentIndex - 1;
+                }
+            }
+
+            this.track.scrollTo({
+                left: targetIndex * width,
+                behavior: 'smooth'
+            });
+        }
+    }
+
+    // 當 Astro 頁面載入或 View Transitions 切換時初始化
+    document.addEventListener('astro:page-load', () => {
+        initCarousels();
+    });
+    // 相容一般載入
+    document.addEventListener('DOMContentLoaded', () => {
+        initCarousels();
+    });
+
+    function initCarousels() {
+        document.querySelectorAll('.js-carousel').forEach(el => {
+            // 防止重複綁定
+            if (!el.dataset.initialized) {
+                new HakuCarousel(el);
+                el.dataset.initialized = 'true';
+            }
+        });
+    }
+</script>
