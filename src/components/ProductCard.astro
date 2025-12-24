@@ -15,8 +15,7 @@ const tagsArr = product.tags ? product.tags.split(',').map((t:string) => t.trim(
 const formattedPrice = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(product.price);
 ---
 
-<div class={`haku-card ${activeLayout === 'horizontal' ? 'horizontal' : ''} ${activeLayout === 'no_image' ? 'no-image' : ''}`}>
-  
+<div class={`haku-card ${activeLayout === 'horizontal' ? 'horizontal' : ''} ${activeLayout === 'no_image' ? 'no-image' : ''}`} data-json={JSON.stringify(product)}>  
   {activeLayout !== 'no_image' && (
     <div class={`img-box ${activeLayout === 'vertical' ? 'img-v js-carousel' : 'img-h'}`}>
       {activeLayout === 'vertical' && imagesArr.length > 1 ? (
@@ -110,4 +109,39 @@ const formattedPrice = new Intl.NumberFormat('zh-TW', { style: 'currency', curre
   }
   document.addEventListener('astro:page-load', initCarousels);
   initCarousels(); // For initial load
+import { addToCart } from '../store';
+
+  // 原有的輪播邏輯
+  function initCarousels() { /* ...省略... */ }
+  document.addEventListener('astro:page-load', initCarousels);
+  initCarousels();
+
+  // === 新增：加入購物車邏輯 ===
+  document.addEventListener('astro:page-load', () => {
+    // 找到所有 .haku-card 裡的購物車按鈕
+    const cards = document.querySelectorAll('.haku-card');
+
+    cards.forEach(card => {
+        const btn = card.querySelector('.cart-icon');
+        // 從 DOM 讀取資料 (需要先在 HTML 埋入 data attribute)
+        // 為了安全起見，我們讀取外層傳入的 data-product 屬性
+        
+        btn?.addEventListener('click', (e) => {
+            e.preventDefault(); // 防止跳轉
+            e.stopPropagation();
+
+            // 從卡片 DOM 結構獲取資料，或者比較好的方式是
+            // 在 .haku-card 上面用 data-json 把整個 product 物件存起來
+            const productJson = card.getAttribute('data-json');
+            if (productJson) {
+                const product = JSON.parse(productJson);
+                addToCart(product); // 呼叫 store 加入
+                
+                // 可以加個簡單的震動回饋或 Toast
+                btn.classList.add('clicked');
+                setTimeout(() => btn.classList.remove('clicked'), 200);
+            }
+        });
+    });
+  });
 </script>
