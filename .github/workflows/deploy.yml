@@ -1,18 +1,22 @@
 name: Deploy Astro Site to GitHub Pages
 
 on:
+  # 原本的設定 (推程式碼時更新)
   push:
     branches: [ main ]
+  
+  # --- 新增這段：允許外部訊號觸發 ---
+  repository_dispatch:
+    types: [webhook]
+  # -------------------------------
+  
+  # 允許手動在 GitHub 網頁按按鈕 (選用)
   workflow_dispatch:
 
 permissions:
   contents: read
   pages: write
   id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
 
 jobs:
   build:
