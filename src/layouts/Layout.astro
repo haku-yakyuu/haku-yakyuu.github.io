@@ -2,29 +2,52 @@
 interface Props {
 	title: string;
 	config?: any;
+	image?: string; // 新增：接收該頁面傳入的特定圖片
 }
 
-const { title, config } = Astro.props;
+const { title, config, image } = Astro.props;
 
-// --- 驗證碼邏輯：優先讀取試算表，若無則使用你提供的這串「寫死備用」 ---
+// --- 1. 設定預設圖 (請確保你有把 default-og.jpg 放在 public 資料夾) ---
+// Astro.url.origin 會自動抓取你網站目前的網域 (例如 https://haku-yakyuu.github.io)
+const defaultOGImage = new URL("/default-og.jpg", Astro.url.origin).toString();
+
+// --- 2. 決定最終要用哪張圖 ---
+// 如果該頁面有傳入 image 就用它，否則就用預設圖
+const socialImage = image || defaultOGImage;
+
+// --- 3. 驗證碼與描述邏輯 (維持不變) ---
 const DEFAULT_VERIFICATION = "RSCsK8X-OoCTr2uKZ2oKz-QbY1SjZWYLZRIfQz9NKWY";
 const googleVerification = config?.google_verification || DEFAULT_VERIFICATION;
+const siteDescription = config?.announcement || "HAKU 職人眼光的棒球選品";
 ---
 
 <!doctype html>
 <html lang="zh-Hant">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="description" content={config?.announcement || "HAKU 職人眼光的棒球選品"} />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="generator" content={Astro.generator} />
 		
-		{/* 搜尋引擎驗證 (優先使用變數) */}
+		<title>{title}</title>
+		<meta name="description" content={siteDescription} />
+
+		{/* --- Open Graph / Facebook 設定 --- */}
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content={Astro.url} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={siteDescription} />
+		<meta property="og:image" content={socialImage} />
+
+		{/* --- Twitter 設定 (許多平台也會參考這個) --- */}
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={siteDescription} />
+		<meta name="twitter:image" content={socialImage} />
+		
+		{/* 搜尋引擎驗證 */}
 		<meta name="google-site-verification" content={googleVerification} />
 		
-		<title>{title}</title>
-
 		{/* Google Fonts & Icons */}
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
