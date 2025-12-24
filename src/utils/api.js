@@ -1,6 +1,7 @@
 // src/utils/api.js
 const GAS_URL = "https://script.google.com/macros/s/AKfycbw7jGvpY2DU5dPdSdkXMcL4Mnf0jZIcKfMYEJOkIiDIm7qoMkGid-upq1AJ3mVRP9Il/exec";
 
+// 注意這裡 export 的名字是 fetchProducts
 export async function fetchProducts() {
   try {
     const response = await fetch(GAS_URL);
