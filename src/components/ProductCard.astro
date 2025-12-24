@@ -6,16 +6,35 @@ interface Props {
 }
 const { product, config } = Astro.props;
 
-// 邏輯處理
-const imagesArr = product.images ? product.images.split(',').map((url:string) => url.trim()).filter((url:string) => url !== "") : [];
-// 如果 layout 是 vertical/horizontal 但沒有圖片，降級為 no_image
-const activeLayout = (product.layout && imagesArr.length > 0) ? product.layout : 'no_image';
+// 1. 處理佈局與圖片
+// 將逗號分隔的圖片字串轉為陣列，並過濾空值
+const imagesArr = product.layout ? product.layout.split(',').map((url:string) => url.trim()).filter((url:string) => url !== "") : [];
+
+// 判斷樣式：如果有 images 欄位則使用 images 作為樣式判斷 (vertical/horizontal/no_image)
+// 根據你的 GAS 修正，現在 product.images 是樣式，product.layout 是圖片網址
+const styleType = product.images || 'no_image'; 
+
+// 最終樣式判斷：如果樣式不是 no_image 但沒有圖片，強制降級為 no_image
+const activeLayout = (styleType !== 'no_image' && imagesArr.length > 0) ? styleType : 'no_image';
+
+// 2. 處理標籤與價格
 const solidTagsArr = config.solid_tags ? config.solid_tags.split(',').map((t:string) => t.trim()) : [];
 const tagsArr = product.tags ? product.tags.split(',').map((t:string) => t.trim()) : [];
 const formattedPrice = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(product.price);
+
+// 3. 準備給購物車的資料 (序列化)
+// 我們需要把 layout 欄位確保是字串傳遞，以免 JSON 解析出錯
+const cartProductData = JSON.stringify({
+  id: product.id,
+  name: product.name,
+  price: product.price,
+  layout: product.layout // 傳遞圖片字串給 store 處理
+});
 ---
 
-<div class={`haku-card ${activeLayout === 'horizontal' ? 'horizontal' : ''} ${activeLayout === 'no_image' ? 'no-image' : ''}`} data-json={JSON.stringify(product)}>  
+<div class={`haku-card ${activeLayout === 'horizontal' ? 'horizontal' : ''} ${activeLayout === 'no_image' ? 'no-image' : ''}`} data-json={cartProductData}>
+  
+  {/* 圖片區域 */}
   {activeLayout !== 'no_image' && (
     <div class={`img-box ${activeLayout === 'vertical' ? 'img-v js-carousel' : 'img-h'}`}>
       {activeLayout === 'vertical' && imagesArr.length > 1 ? (
@@ -35,6 +54,7 @@ const formattedPrice = new Intl.NumberFormat('zh-TW', { style: 'currency', curre
     </div>
   )}
 
+  {/* 文字與控制區域 */}
   <div class="card-body">
     <div class="tag-group">
       {tagsArr.map((tag: string) => (
@@ -43,6 +63,8 @@ const formattedPrice = new Intl.NumberFormat('zh-TW', { style: 'currency', curre
     </div>
     <h3 class="p-name">{product.name}</h3>
     <div class="p-price">{formattedPrice}</div>
+    
+    {/* 購物車按鈕 */}
     <span class="material-symbols-outlined cart-icon">
       {activeLayout === 'no_image' ? 'arrow_forward' : 'add_shopping_cart'}
     </span>
@@ -50,98 +72,131 @@ const formattedPrice = new Intl.NumberFormat('zh-TW', { style: 'currency', curre
 </div>
 
 <style>
-  /* 這裡放入我們之前 V8 的所有卡片 CSS (haku-card, img-box, carousel...) */
+  /* 卡片基礎樣式 */
   .haku-card { background-color: var(--haku-paper); border: 1px solid rgba(62, 39, 35, 0.1); display: flex; flex-direction: column; position: relative; overflow: hidden; height: 100%; transition: transform 0.3s ease; }
   .haku-card:hover { transform: translateY(-5px); }
+  
   .card-body { padding: 18px; flex-grow: 1; display: flex; flex-direction: column; position: relative; }
   .p-name { font-size: 1rem; font-weight: 700; margin: 0 0 12px 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; width: 100%; }
   .p-price { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.1rem; margin-top: auto; }
-  .cart-icon { position: absolute; bottom: 18px; right: 18px; opacity: 0.8; cursor: pointer; z-index: 10; }
-  
-  /* Tags */
+  .cart-icon { position: absolute; bottom: 18px; right: 18px; opacity: 0.8; cursor: pointer; z-index: 10; transition: transform 0.2s; }
+  .cart-icon:active { transform: scale(0.9); }
+
+  /* 標籤 */
   .tag-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .tag { font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border: 1px solid var(--haku-ink); border-radius: 2px; text-transform: uppercase; }
   .tag-hollow { color: var(--haku-ink); background: transparent; }
   .tag-solid { color: var(--haku-paper); background: var(--haku-ink); }
 
-  /* Images */
+  /* 圖片容器 */
   .img-box { background: var(--placeholder-bg); overflow: hidden; position: relative; }
   .img-v { aspect-ratio: 1/1; width: 100%; }
   .img-h { width: 110px; height: 100%; flex-shrink: 0; }
   .img-box img { width: 100%; height: 100%; object-fit: cover; }
-  
-  /* Carousel */
+
+  /* 輪播樣式 */
   .carousel-wrap { width: 100%; height: 100%; position: relative; }
   .carousel-track { display: flex; width: 100%; height: 100%; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; cursor: grab; }
   .carousel-track::-webkit-scrollbar { display: none; }
   .carousel-track img { flex: 0 0 100%; scroll-snap-align: start; }
+  
   .carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 5; opacity: 0; transition: 0.3s; }
-  .btn-prev { left: 10px; } .btn-next { right: 10px; }
+  .btn-prev { left: 10px; } 
+  .btn-next { right: 10px; }
   @media (min-width: 1024px) { .haku-card:hover .carousel-btn { opacity: 1; } }
+  
   .carousel-dots { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; z-index: 5; }
   .dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.4); }
   .dot.active { background: #FFF; width: 12px; border-radius: 3px; }
 
-  /* Layout Variants */
+  /* 橫式與無圖 */
   .haku-card.horizontal { flex-direction: row; min-height: 130px; }
   .no-image { border-top: 5px solid var(--haku-ink); }
 </style>
 
 <script>
-  // 輪播互動邏輯 (支援 View Transitions)
+  import { addToCart } from '../store';
+
+  // 1. 定義輪播初始化函式 (只定義這一次)
   function initCarousels() {
     document.querySelectorAll('.js-carousel').forEach(carousel => {
       const track = carousel.querySelector('.carousel-track') as HTMLElement;
       const nextBtn = carousel.querySelector('.btn-next');
       const prevBtn = carousel.querySelector('.btn-prev');
       const dots = carousel.querySelectorAll('.dot');
+      
       if(!track || !nextBtn || !prevBtn) return;
       
       const total = track.querySelectorAll('img').length;
+      
       const updateUI = () => {
         const index = Math.round(track.scrollLeft / track.offsetWidth);
         dots.forEach((d, i) => d.classList.toggle('active', i === index));
       };
-      nextBtn.addEventListener('click', (e) => { e.preventDefault(); const cur = Math.round(track.scrollLeft / track.offsetWidth); track.scrollTo({ left: cur >= total - 1 ? 0 : track.scrollLeft + track.offsetWidth, behavior: 'smooth' }); });
-      prevBtn.addEventListener('click', (e) => { e.preventDefault(); const cur = Math.round(track.scrollLeft / track.offsetWidth); track.scrollTo({ left: cur <= 0 ? track.offsetWidth * (total - 1) : track.scrollLeft - track.offsetWidth, behavior: 'smooth' }); });
+
+      // 移除舊的監聽器避免重複 (防呆)
+      const newNext = nextBtn.cloneNode(true);
+      const newPrev = prevBtn.cloneNode(true);
+      nextBtn.parentNode?.replaceChild(newNext, nextBtn);
+      prevBtn.parentNode?.replaceChild(newPrev, prevBtn);
+
+      newNext.addEventListener('click', (e) => { 
+        e.preventDefault(); 
+        e.stopPropagation(); // 防止觸發卡片連結
+        const cur = Math.round(track.scrollLeft / track.offsetWidth); 
+        track.scrollTo({ left: cur >= total - 1 ? 0 : track.scrollLeft + track.offsetWidth, behavior: 'smooth' }); 
+      });
+
+      newPrev.addEventListener('click', (e) => { 
+        e.preventDefault(); 
+        e.stopPropagation();
+        const cur = Math.round(track.scrollLeft / track.offsetWidth); 
+        track.scrollTo({ left: cur <= 0 ? track.offsetWidth * (total - 1) : track.scrollLeft - track.offsetWidth, behavior: 'smooth' }); 
+      });
+
       track.addEventListener('scroll', updateUI);
     });
   }
-  document.addEventListener('astro:page-load', initCarousels);
-  initCarousels(); // For initial load
-import { addToCart } from '../store';
 
-  // 原有的輪播邏輯
-  function initCarousels() { /* ...省略... */ }
-  document.addEventListener('astro:page-load', initCarousels);
-  initCarousels();
-
-  // === 新增：加入購物車邏輯 ===
-  document.addEventListener('astro:page-load', () => {
-    // 找到所有 .haku-card 裡的購物車按鈕
+  // 2. 定義購物車按鈕邏輯
+  function initCartButtons() {
     const cards = document.querySelectorAll('.haku-card');
-
     cards.forEach(card => {
-        const btn = card.querySelector('.cart-icon');
-        // 從 DOM 讀取資料 (需要先在 HTML 埋入 data attribute)
-        // 為了安全起見，我們讀取外層傳入的 data-product 屬性
-        
-        btn?.addEventListener('click', (e) => {
-            e.preventDefault(); // 防止跳轉
-            e.stopPropagation();
+      const btn = card.querySelector('.cart-icon');
+      if (!btn) return;
+      
+      // 使用 cloneNode 清除舊事件避免累加
+      const newBtn = btn.cloneNode(true) as HTMLElement;
+      btn.parentNode?.replaceChild(newBtn, btn);
 
-            // 從卡片 DOM 結構獲取資料，或者比較好的方式是
-            // 在 .haku-card 上面用 data-json 把整個 product 物件存起來
-            const productJson = card.getAttribute('data-json');
-            if (productJson) {
-                const product = JSON.parse(productJson);
-                addToCart(product); // 呼叫 store 加入
-                
-                // 可以加個簡單的震動回饋或 Toast
-                btn.classList.add('clicked');
-                setTimeout(() => btn.classList.remove('clicked'), 200);
-            }
-        });
+      newBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const jsonStr = card.getAttribute('data-json');
+        if (jsonStr) {
+          try {
+            const product = JSON.parse(jsonStr);
+            addToCart(product);
+            
+            // 點擊回饋動畫
+            newBtn.style.transform = 'scale(1.2)';
+            setTimeout(() => newBtn.style.transform = 'scale(1)', 200);
+          } catch (err) {
+            console.error('Error parsing product data', err);
+          }
+        }
+      });
     });
+  }
+
+  // 3. 統一執行入口
+  document.addEventListener('astro:page-load', () => {
+    initCarousels();
+    initCartButtons();
   });
+
+  // 確保首次載入也執行
+  initCarousels();
+  initCartButtons();
 </script>
