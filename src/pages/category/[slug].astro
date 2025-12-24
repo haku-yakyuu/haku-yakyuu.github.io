@@ -6,7 +6,6 @@ import { fetchProducts } from '../../utils/api';
 export async function getStaticPaths() {
   const { products } = await fetchProducts();
   const categories = [...new Set(products.map((p) => p.category).filter(Boolean))];
-  
   return categories.map((cat) => ({
     params: { slug: cat },
     props: { categoryName: cat },
@@ -15,31 +14,24 @@ export async function getStaticPaths() {
 
 const { categoryName } = Astro.props;
 const { products, config } = await fetchProducts();
-
-// 篩選該分類商品
 const categoryProducts = products.filter((p) => p.category === categoryName);
-
-// 確保標題變數存在 (修正錯誤的關鍵)
-const pageTitle = `${categoryName} | ${config.site_title || 'HAKU'}`;
+const pageTitle = `${categoryName} | ${config?.site_title || 'HAKU'}`;
 ---
 
 <Layout title={pageTitle}>
   <main class="container" style="padding-top: 60px;">
-    
     <div class="sec-header">
        <h2>{categoryName}</h2>
     </div>
-
     {categoryProducts.length === 0 ? (
       <p style="text-align:center; padding:50px;">此分類目前沒有商品。</p>
     ) : (
       <div class="grid-v">
         {categoryProducts.map((p) => (
-          <ProductCard product={p} config={config} />
+          <ProductCard product={p} config={config || {}} />
         ))}
       </div>
     )}
-
   </main>
 </Layout>
 
@@ -47,7 +39,6 @@ const pageTitle = `${categoryName} | ${config.site_title || 'HAKU'}`;
   .container { max-width: 1400px; margin: 0 auto; padding: 0 5%; }
   .grid-v { display: grid; gap: 20px; grid-template-columns: repeat(2, 1fr); }
   @media (min-width: 1024px) { .grid-v { grid-template-columns: repeat(4, 1fr); gap: 30px; } }
-  
   .sec-header { border-bottom: 3px solid var(--haku-ink); margin-bottom: 40px; padding-bottom: 10px; }
   .sec-header h2 { font-family: 'Montserrat', sans-serif; font-size: 1.5rem; margin: 0; }
 </style>
