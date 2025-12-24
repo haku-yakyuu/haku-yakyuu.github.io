@@ -1,9 +1,13 @@
 ---
-import { getHakuData } from '../utils/api';
+// src/components/Sidebar.astro
 
-const { products, config } = await getHakuData();
-const categories = [...new Set(products.map(p => p.category))];
-const siteTitle = config.site_title || "HAKU YAKYUU";
+// 修正這裡：把 getHakuData 改成 fetchProducts
+import { fetchProducts } from '../utils/api';
+
+// 修正這裡：使用 fetchProducts()
+const { products } = await fetchProducts();
+
+const categories = [...new Set(products.map((p: any) => p.category))];
 ---
 
 <aside class="sidebar">
