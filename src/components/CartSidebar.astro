@@ -110,7 +110,7 @@
         </div>
       `;
 
-      // 綁定事件
+      // 綁定事件 (JS 生成的元素需要手動綁定監聽器)
       el.querySelector('.minus')?.addEventListener('click', () => updateQuantity(item.id, item.quantity - 1));
       el.querySelector('.plus')?.addEventListener('click', () => updateQuantity(item.id, item.quantity + 1));
       el.querySelector('.remove-box')?.addEventListener('click', () => removeFromCart(item.id));
@@ -120,7 +120,7 @@
   });
 </script>
 
-<style>
+<style is:global>
   /* 移植自你提供的 HTML 樣式 */
   
   .overlay {
@@ -129,7 +129,7 @@
     opacity: 0; pointer-events: none; transition: opacity 0.4s;
     backdrop-filter: blur(2px);
   }
-  .overlay.open { opacity: 1; pointer-events: auto; visibility: visible; } /* 修正：加上 visibility 以防萬一 */
+  .overlay.open { opacity: 1; pointer-events: auto; visibility: visible; }
 
   .cart-sidebar {
     position: fixed; top: 0; right: -400px;
