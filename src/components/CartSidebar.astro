@@ -1,163 +1,160 @@
 ---
-// src/components/CartSidebar.astro
 ---
+<div id="cart-overlay" class="overlay"></div>
 
-<aside id="sidebar-cart" class="sidebar-cart">
+<aside id="cart-sidebar" class="cart-sidebar">
   <div class="cart-header">
-    <div class="title">SHOPPING BAG</div>
-    <span class="material-symbols-outlined close-btn" id="close-cart">close</span>
+    <h2>SHOPPING CART</h2>
+    <button id="close-cart" class="close-btn material-symbols-outlined">close</button>
   </div>
-
-  <div class="cart-items" id="cart-container">
+  
+  <div class="cart-items" id="cart-items-container">
     </div>
-
+  
   <div class="cart-footer">
     <div class="total-row">
       <span>TOTAL</span>
-      <span id="cart-total">$ 0</span>
+      <span id="cart-total">$0</span>
     </div>
-    <button class="checkout-btn">前往結帳</button>
+    <a href="https://lin.ee/你的LineID" target="_blank" class="checkout-btn">
+      前往 LINE 結帳
+    </a>
   </div>
 </aside>
-
-<div id="overlay-cart" class="overlay-cart"></div>
-
-<style>
-  :root { --haku-ink: #3E2723; --haku-paper: #F5F1E8; }
-
-  .sidebar-cart {
-    position: fixed; top: 0; right: 0; bottom: 0; width: 350px; /* 稍寬一點 */
-    background: var(--haku-paper); color: var(--haku-ink);
-    z-index: 2000; transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    display: flex; flex-direction: column; border-left: 1px solid rgba(62,39,35,0.1);
-  }
-  .sidebar-cart.open { transform: translateX(0); }
-  
-  .cart-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(62,39,35,0.1); }
-  .title { font-family: 'Montserrat', sans-serif; font-weight: 900; }
-  .close-btn { cursor: pointer; }
-
-  .cart-items { flex-grow: 1; overflow-y: auto; padding: 20px; }
-  
-  /* --- 購物車商品樣式 --- */
-  /* 這些樣式會被 JS 生成的 HTML 使用，所以需要 :global 或寫在 global css，這邊用一般的即可因為是在元件內 */
-  .c-item { display: flex; gap: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(62,39,35,0.1); }
-  
-  /* 圖片區域處理 */
-  .c-img-box { width: 80px; height: 80px; flex-shrink: 0; background: var(--haku-ink); display: flex; justify-content: center; align-items: center; border-radius: 4px; overflow: hidden; }
-  .c-img-box img { width: 100%; height: 100%; object-fit: cover; }
-  .c-img-box .icon { color: var(--haku-paper); font-size: 32px; } /* 無圖時的 ICON 顏色 */
-
-  .c-info { flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
-  .c-name { font-size: 0.9rem; font-weight: 700; line-height: 1.3; margin-bottom: 5px; }
-  .c-price { font-family: 'Montserrat'; font-weight: 700; font-size: 0.95rem; }
-  
-  .c-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }
-  .qty-box { display: flex; align-items: center; gap: 10px; border: 1px solid var(--haku-ink); padding: 2px 8px; border-radius: 2px; }
-  .qty-btn { cursor: pointer; font-size: 1rem; user-select: none; font-weight: bold; }
-  .qty-num { font-family: 'Montserrat'; font-size: 0.9rem; min-width: 20px; text-align: center; }
-  .remove-btn { cursor: pointer; opacity: 0.5; font-size: 1.2rem; }
-  .remove-btn:hover { opacity: 1; color: #D32F2F; }
-
-  .cart-footer { padding: 20px; border-top: 1px solid rgba(62,39,35,0.1); background: var(--haku-paper); }
-  .total-row { display: flex; justify-content: space-between; margin-bottom: 15px; font-family: 'Montserrat'; font-weight: 900; font-size: 1.2rem; }
-  .checkout-btn { width: 100%; background: var(--haku-ink); color: var(--haku-paper); border: none; padding: 15px; font-weight: 700; cursor: pointer; font-size: 1rem; transition: 0.3s; }
-  .checkout-btn:hover { opacity: 0.9; }
-
-  .overlay-cart {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(62,39,35,0.4); backdrop-filter: blur(2px);
-    z-index: 1500; opacity: 0; pointer-events: none; transition: opacity 0.4s;
-  }
-  .overlay-cart.active { opacity: 1; pointer-events: auto; }
-</style>
 
 <script>
   import { isCartOpen, cartItems, removeFromCart, updateQuantity } from '../store';
 
-  const sidebar = document.getElementById('sidebar-cart');
-  const overlay = document.getElementById('overlay-cart');
+  const sidebar = document.getElementById('cart-sidebar');
+  const overlay = document.getElementById('cart-overlay');
   const closeBtn = document.getElementById('close-cart');
-  const container = document.getElementById('cart-container');
+  const container = document.getElementById('cart-items-container');
   const totalEl = document.getElementById('cart-total');
 
   // 開關邏輯
-  isCartOpen.subscribe(isOpen => {
-    if (isOpen) {
-      sidebar?.classList.add('open');
+  isCartOpen.subscribe(open => {
+    if (open) {
+      sidebar?.classList.add('active');
       overlay?.classList.add('active');
     } else {
-      sidebar?.classList.remove('open');
+      sidebar?.classList.remove('active');
       overlay?.classList.remove('active');
     }
   });
 
-  closeBtn?.addEventListener('click', () => isCartOpen.set(false));
-  overlay?.addEventListener('click', () => isCartOpen.set(false));
+  const close = () => isCartOpen.set(false);
+  closeBtn?.addEventListener('click', close);
+  overlay?.addEventListener('click', close);
 
-  // 渲染購物車邏輯
+  // 渲染購物車 (依據新需求：左圖右文、上下置中)
   cartItems.subscribe(items => {
     if (!container || !totalEl) return;
     
-    // 計算總金額
-    const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    totalEl.innerText = `$ ${total.toLocaleString()}`;
+    // 計算總額
+    const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    totalEl.textContent = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(total);
 
-    // 渲染列表 HTML
     if (items.length === 0) {
-      container.innerHTML = '<p style="text-align:center; opacity:0.6; margin-top:50px;">購物車是空的</p>';
+      container.innerHTML = '<p class="empty-msg">購物車是空的</p>';
       return;
     }
 
-    container.innerHTML = items.map(item => `
-      <div class="c-item">
-        <div class="c-img-box">
-          ${item.image === 'no_image' 
-            ? `<span class="material-symbols-outlined icon">shopping_bag</span>` 
-            : `<img src="${item.image}" alt="${item.name}">`
-          }
-        </div>
-        <div class="c-info">
-          <div>
-            <div class="c-name">${item.name}</div>
-            <div class="c-price">$ ${item.price.toLocaleString()}</div>
+    container.innerHTML = '';
+    items.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'cart-item';
+      
+      // 處理圖片
+      let imgHtml = '';
+      if (item.images || item.layout_images) {
+        const raw = item.layout_images || item.images;
+        const firstImg = raw.split(',')[0].trim();
+        // 修正路徑
+        const imgSrc = (firstImg.startsWith('http') || firstImg.startsWith('/')) ? firstImg : '/' + firstImg;
+        if(imgSrc) {
+           imgHtml = `<div class="item-img"><img src="${imgSrc}" alt="${item.name}"></div>`;
+        }
+      }
+
+      el.innerHTML = `
+        ${imgHtml}
+        <div class="item-info">
+          <div class="info-top">
+            <span class="item-name">${item.name}</span>
+            <span class="item-price">$${item.price}</span>
           </div>
-          <div class="c-controls">
-            <div class="qty-box">
-              <span class="qty-btn js-dec" data-id="${item.id}">-</span>
+          <div class="info-bottom">
+            <div class="qty-control">
+              <button class="qty-btn minus">-</button>
               <span class="qty-num">${item.quantity}</span>
-              <span class="qty-btn js-inc" data-id="${item.id}">+</span>
+              <button class="qty-btn plus">+</button>
             </div>
-            <span class="material-symbols-outlined remove-btn js-remove" data-id="${item.id}">close</span>
+            <button class="remove-btn material-symbols-outlined">close</button>
           </div>
         </div>
-      </div>
-    `).join('');
+      `;
 
-    // 重新綁定事件監聽器 (因為 innerHTML 重繪了)
-    attachListeners();
+      // 綁定事件
+      el.querySelector('.minus')?.addEventListener('click', () => updateQuantity(item.id, item.quantity - 1));
+      el.querySelector('.plus')?.addEventListener('click', () => updateQuantity(item.id, item.quantity + 1));
+      el.querySelector('.remove-btn')?.addEventListener('click', () => removeFromCart(item.id));
+
+      container.appendChild(el);
+    });
   });
-
-  function attachListeners() {
-    document.querySelectorAll('.js-inc').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = (e.target as HTMLElement).dataset.id;
-        if(id) updateQuantity(id, 'inc');
-      });
-    });
-
-    document.querySelectorAll('.js-dec').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = (e.target as HTMLElement).dataset.id;
-        if(id) updateQuantity(id, 'dec');
-      });
-    });
-
-    document.querySelectorAll('.js-remove').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = (e.target as HTMLElement).dataset.id;
-        if(id) removeFromCart(id);
-      });
-    });
-  }
 </script>
+
+<style>
+  .overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); z-index: 2999;
+    opacity: 0; visibility: hidden; transition: 0.3s;
+  }
+  .overlay.active { opacity: 1; visibility: visible; }
+
+  .cart-sidebar {
+    position: fixed; top: 0; right: -350px; width: 350px; max-width: 90%; height: 100%;
+    background: #F5F1E8; border-left: 1px solid #3E2723;
+    z-index: 3000; transition: transform 0.3s ease;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+    display: flex; flex-direction: column;
+  }
+  .cart-sidebar.active { transform: translateX(-350px); }
+
+  .cart-header {
+    padding: 20px; border-bottom: 1px solid rgba(62,39,35,0.1);
+    display: flex; justify-content: space-between; align-items: center; background: #F5F1E8;
+  }
+  .cart-header h2 { margin: 0; font-size: 1.2rem; font-family: 'Montserrat', sans-serif; }
+  .close-btn { background: none; border: none; cursor: pointer; font-size: 1.5rem; color: #3E2723; }
+
+  .cart-items { flex-grow: 1; overflow-y: auto; padding: 20px; }
+  .empty-msg { text-align: center; opacity: 0.5; margin-top: 40px; }
+
+  /* --- 購物車項目樣式 (左圖右文) --- */
+  .cart-item { display: flex; gap: 15px; margin-bottom: 20px; align-items: center; border-bottom: 1px solid rgba(62,39,35,0.05); padding-bottom: 20px; }
+  
+  .item-img { width: 70px; height: 70px; flex-shrink: 0; background: #DCD7CE; border-radius: 4px; overflow: hidden; }
+  .item-img img { width: 100%; height: 100%; object-fit: cover; }
+  
+  .item-info { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+  
+  .info-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .item-name { font-size: 0.95rem; font-weight: 700; line-height: 1.3; }
+  .item-price { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1rem; }
+  
+  .info-bottom { display: flex; justify-content: space-between; align-items: center; }
+  
+  .qty-control { display: flex; align-items: center; border: 1px solid #3E2723; border-radius: 4px; overflow: hidden; }
+  .qty-btn { background: none; border: none; width: 24px; height: 24px; cursor: pointer; color: #3E2723; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+  .qty-btn:hover { background: rgba(62,39,35,0.1); }
+  .qty-num { width: 24px; text-align: center; font-size: 0.9rem; font-family: 'Montserrat', sans-serif; }
+  
+  .remove-btn { background: none; border: none; cursor: pointer; color: #D32F2F; font-size: 1.2rem; display: flex; align-items: center; }
+
+  /* Footer */
+  .cart-footer { padding: 20px; border-top: 1px solid rgba(62,39,35,0.1); background: #F5F1E8; }
+  .total-row { display: flex; justify-content: space-between; font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.2rem; margin-bottom: 15px; }
+  .checkout-btn { display: block; width: 100%; padding: 12px; background: #3E2723; color: #F5F1E8; text-align: center; text-decoration: none; font-weight: 700; transition: 0.3s; }
+  .checkout-btn:hover { opacity: 0.9; }
+</style>
