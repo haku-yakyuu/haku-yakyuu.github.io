@@ -1,5 +1,4 @@
 ---
-// src/pages/index.astro
 import Layout from '../layouts/Layout.astro';
 import ProductCard from '../components/ProductCard.astro';
 import { fetchProducts } from '../utils/api';
@@ -7,23 +6,25 @@ import { fetchProducts } from '../utils/api';
 const { products, config, error } = await fetchProducts();
 
 // 篩選 active 且 isFeatured
-const featuredProducts = products.filter((p: any) => 
+const featuredProducts = products.filter((p) => 
   p.status === 'active' && (p.isFeatured === true || p.isFeatured === "true")
 );
 
-// 依照 Category 分組
-const grouped = featuredProducts.reduce((acc: any, p: any) => {
+// 分組
+const grouped = featuredProducts.reduce((acc, p) => {
   const cat = p.category || "其他";
   if (!acc[cat]) acc[cat] = [];
   acc[cat].push(p);
   return acc;
 }, {});
 const categories = Object.keys(grouped);
+
+// 安全的標題邏輯
+const pageTitle = `${config?.site_title || "HAKU"} | 首頁`;
 ---
 
-<Layout title={`${config.site_title || "HAKU"} | 首頁`}>
+<Layout title={pageTitle}>
   
-  {/* Hero Section */}
   <header class="hero">
     <h1>HAKU</h1>
     <p>從球場的紅土到收藏盒的溫度。HAKU 為您挑選每一顆承載歷史與紀錄的棒球，延續那份不滅的野球魂。</p>
@@ -39,7 +40,7 @@ const categories = Object.keys(grouped);
           <h2>{cat} <span>FEATURED</span></h2>
         </div>
         <div class="grid-v">
-          {grouped[cat].map((p:any) => <ProductCard product={p} config={config} />)}
+          {grouped[cat].map((p) => <ProductCard product={p} config={config || {}} />)}
         </div>
       </section>
     ))}
@@ -57,9 +58,12 @@ const categories = Object.keys(grouped);
   .hero-btn { border: 2px solid var(--haku-paper); padding: 12px 40px; font-weight: 700; transition: 0.3s; margin-top: 10px; }
   .hero-btn:hover { background: var(--haku-paper); color: var(--haku-ink); }
   
-  section { margin-top: var(--section-gap); }
+  .container { max-width: 1400px; margin: 0 auto; padding: 0 5%; }
+  section { margin-top: 120px; }
   .sec-header { border-bottom: 3px solid var(--haku-ink); margin-bottom: 40px; padding-bottom: 10px; }
   .sec-header h2 { font-family: 'Montserrat', sans-serif; font-size: 1.5rem; margin: 0; }
   .sec-header span { font-size: 0.9rem; opacity: 0.6; font-family: 'Noto Sans TC'; margin-left: 10px; font-weight: 400; }
   .msg { text-align: center; padding: 40px; }
+  .grid-v { display: grid; gap: 20px; grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 1024px) { .grid-v { grid-template-columns: repeat(4, 1fr); gap: 30px; } }
 </style>
