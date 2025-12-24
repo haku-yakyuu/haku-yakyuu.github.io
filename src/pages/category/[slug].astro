@@ -1,118 +1,63 @@
 ---
+// src/pages/category/[slug].astro
 import Layout from '../../layouts/Layout.astro';
 import ProductCard from '../../components/ProductCard.astro';
-import { getHakuData } from '../../utils/api';
 
+// 修正重點 1: 這裡要改成 fetchProducts
+import { fetchProducts } from '../../utils/api';
+
+// 1. 生成靜態路徑 (Static Paths)
+// Astro 需要知道總共有哪些「分類」頁面需要生成 (例如 /category/紀念球, /category/配件)
 export async function getStaticPaths() {
-  const { products } = await getHakuData();
-  const uniqueCategories = [...new Set(products.map(p => p.category))];
-  return uniqueCategories.map(cat => ({
-      params: { slug: cat },
-      props: { categoryName: cat },
+  // 修正重點 2: 使用 fetchProducts()
+  const { products } = await fetchProducts();
+  
+  // 抓出所有不重複的 category
+  const categories = [...new Set(products.map((p: any) => p.category))];
+  
+  // 回傳路徑參數
+  return categories.map((cat) => ({
+    params: { slug: cat },
+    props: { categoryName: cat },
   }));
 }
 
+// 2. 頁面邏輯
 const { categoryName } = Astro.props;
-const { products, config, solidTagsList } = await getHakuData();
+// 修正重點 3: 使用 fetchProducts() 抓取資料
+const { products, config } = await fetchProducts();
 
-// 篩選該分類商品
-const categoryProducts = products.filter(p => p.category === categoryName);
-// 取得所有分類供側邊欄使用
-const allCategories = [...new Set(products.map(p => p.category))];
+// 篩選出該分類的商品
+const categoryProducts = products.filter((p: any) => p.category === categoryName);
 ---
 
-<Layout title={categoryName} siteTitle={config.site_title}>
+<Layout title={`${categoryName} | HAKU 選品`}>
+  <main class="container" style="padding-top: 60px;">
     
-    <div class="shop-container">
-        
-        <!-- Header -->
-        <header class="shop-header">
-            <div class="breadcrumb">首頁 / {categoryName}</div>
-            <h1>{categoryName}</h1>
-        </header>
-
-        <div class="shop-main">
-            
-            <!-- Sidebar (Desktop Fixed Width) -->
-            <aside class="sidebar">
-                <div class="filter-group">
-                    <div class="filter-title">CATEGORIES</div>
-                    <ul class="filter-list">
-                        {allCategories.map(cat => (
-                            <li class={cat === categoryName ? 'active' : ''}>
-                                <a href={`/category/${cat}`}>{cat}</a>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-
-                <div class="filter-group">
-                    <div class="filter-title">CONDITION</div>
-                    <ul class="filter-list">
-                        <li>新品 (New)</li>
-                        <li>二手收藏 (Used)</li>
-                    </ul>
-                </div>
-            </aside>
-
-            <!-- Product Grid -->
-            <section class="product-content">
-                <div class="shop-toolbar">
-                    <div>顯示 {categoryProducts.length} 項商品</div>
-                    <div style="display: flex; gap: 10px; align-items: center; opacity: 0.6; cursor: pointer;">
-                        <span>排序方式: 預設</span>
-                        <span class="material-symbols-outlined">expand_more</span>
-                    </div>
-                </div>
-
-                <div class="grid-shop">
-                    {categoryProducts.map(p => (
-                        <ProductCard product={p} solidTagsList={solidTagsList} />
-                    ))}
-                </div>
-            </section>
-
-        </div>
+    <div class="sec-header">
+       {/* 顯示分類標題 */}
+       <h2>{categoryName}</h2>
     </div>
 
+    {categoryProducts.length === 0 ? (
+      <p style="text-align:center; padding:50px;">此分類目前沒有商品。</p>
+    ) : (
+      <div class="grid-v">
+        {categoryProducts.map((p: any) => (
+          <ProductCard product={p} config={config} />
+        ))}
+      </div>
+    )}
+
+  </main>
 </Layout>
 
 <style>
-    :root {
-        --sidebar-width: 280px;
-    }
-
-    .shop-container { max-width: 1400px; margin: 0 auto; padding: 40px 0; }
-    
-    .shop-header { margin-bottom: 40px; }
-    .shop-header h1 { font-family: 'Montserrat', sans-serif; font-size: 2rem; margin: 0; text-transform: uppercase; font-weight: 900;}
-    .breadcrumb { font-size: 0.8rem; opacity: 0.6; margin-bottom: 20px; }
-
-    .shop-main { display: flex; gap: 50px; }
-
-    /* Sidebar Styles */
-    .sidebar { width: 280px; flex-shrink: 0; display: none; } /* Mobile Hidden */
-    
-    .filter-group { margin-bottom: 40px; }
-    .filter-title { 
-        font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1rem; 
-        border-bottom: 2px solid var(--haku-ink); padding-bottom: 10px; margin-bottom: 20px; 
-    }
-    .filter-list li { list-style: none; margin-bottom: 12px; font-size: 0.95rem; cursor: pointer; transition: 0.2s; }
-    .filter-list li:hover { padding-left: 5px; font-weight: 700; }
-    .filter-list li.active { font-weight: 700; text-decoration: underline; }
-    .filter-list a { display: block; }
-
-    /* Grid Styles */
-    .product-content { flex-grow: 1; }
-    .shop-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; font-size: 0.9rem; }
-
-    /* Mobile: 2 Cols */
-    .grid-shop { display: grid; gap: 20px; grid-template-columns: repeat(2, 1fr); }
-
-    /* PC: Show Sidebar + 3 Cols */
-    @media (min-width: 1024px) {
-        .sidebar { display: block; }
-        .grid-shop { grid-template-columns: repeat(3, 1fr); gap: 30px; }
-    }
+  /* 沿用全站樣式 */
+  .container { max-width: 1400px; margin: 0 auto; padding: 0 5%; }
+  .grid-v { display: grid; gap: 20px; grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 1024px) { .grid-v { grid-template-columns: repeat(4, 1fr); gap: 30px; } }
+  
+  .sec-header { border-bottom: 3px solid var(--haku-ink); margin-bottom: 40px; padding-bottom: 10px; }
+  .sec-header h2 { font-family: 'Montserrat', sans-serif; font-size: 1.5rem; margin: 0; }
 </style>
