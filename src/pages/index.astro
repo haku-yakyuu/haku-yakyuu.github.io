@@ -3,20 +3,92 @@ import Layout from '../layouts/Layout.astro';
 import ProductCard from '../components/ProductCard.astro';
 import { getHakuData } from '../utils/api';
 
+// 取得原始資料
 const { products, config, solidTagsList } = await getHakuData();
 
-// --- 資料分組邏輯 ---
-// 1. 直式卡片 (Grid Vertical)
-// 包含: isFeatured=true 的商品，以及 layout='vertical' 的商品
-const verticalItems = products.filter(p => p.layout === 'vertical');
+// --- 0. 資料正規化 (Data Normalization) ---
+// 關鍵步驟：在進行分類篩選前，先將資料欄位修正，解決 GAS 資料錯置問題
+const normalizedProducts = products.map(product => {
+    const safeProduct = product || {};
+    
+    // A. 處理 Tags (轉為陣列)
+    let tags = [];
+    if (Array.isArray(safeProduct.tags)) {
+        tags = safeProduct.tags;
+    } else if (typeof safeProduct.tags === 'string') {
+        tags = safeProduct.tags.split(',').map(t => t.trim()).filter(t => t);
+    }
+
+    // B. 處理 Layout 與 Images 錯置 (核心修正)
+    let rawLayout = safeProduct.layout;
+    let rawImages = safeProduct.images;
+    
+    const layoutKeywords = ['vertical', 'horizontal', 'no_image'];
+    
+    // 修正 1: 先 trim 再判斷，避免因空白導致判斷失敗
+    const imagesStr = typeof rawImages === 'string' ? rawImages.trim() : '';
+    const isDataSwapped = imagesStr && layoutKeywords.includes(imagesStr);
+
+    let finalLayout = 'vertical';
+    let finalImages = [];
+
+    if (isDataSwapped) {
+        // 情況一：資料錯置 (GAS 常見狀況) -> 互換回來
+        finalLayout = imagesStr; // 這裡確定是 layout 關鍵字
+        
+        // 此時 rawLayout 裡面應該是圖片字串
+        if (typeof rawLayout === 'string' && rawLayout.trim() !== '') {
+            finalImages = rawLayout.split(',').map(s => s.trim());
+        }
+    } else {
+        // 情況二：資料看似正常 (但仍需防呆)
+        finalLayout = rawLayout || 'vertical';
+        
+        if (typeof rawImages === 'string' && rawImages.trim() !== '') {
+            // 修正 2: 再次確認這串字不是 layout 關鍵字，才當作圖片
+            if (!layoutKeywords.includes(rawImages.trim())) {
+                finalImages = rawImages.split(',').map(s => s.trim());
+            }
+        } else if (Array.isArray(rawImages)) {
+            finalImages = rawImages;
+        }
+    }
+
+    // 最終過濾：確保圖片陣列裡沒有混入 layout 關鍵字 (徹底杜絕 404)
+    finalImages = finalImages.filter(img => !layoutKeywords.includes(img));
+
+    // C. 處理 isFeatured (相容 "TRUE", "true", true)
+    const rawFeatured = safeProduct.isFeatured;
+    const isFeatured = rawFeatured === true || String(rawFeatured).toLowerCase() === 'true';
+
+    // 回傳修正後的物件
+    return {
+        ...safeProduct,
+        tags: tags,
+        layout: finalLayout, 
+        images: finalImages, 
+        isFeatured: isFeatured
+    };
+});
+
+// --- 資料分組邏輯 (使用 normalizedProducts) ---
+
+// 1. 直式卡片群組 (Layout = vertical)
+const verticalItems = normalizedProducts.filter(p => p.layout === 'vertical');
+
+// 精選商品：從直式卡片中篩選 isFeatured = true，取前 4 筆
 const featuredItems = verticalItems.filter(p => p.isFeatured).slice(0, 4);
-const otherVerticals = verticalItems.filter(p => !p.isFeatured);
+
+// 其他直式商品：排除掉已經在「精選」顯示過的
+// 邏輯：在 verticalItems 中，找出 id 不在 featuredItems 裡面的
+const featuredIds = featuredItems.map(p => p.id);
+const otherVerticals = verticalItems.filter(p => !featuredIds.includes(p.id));
 
 // 2. 橫式有圖 (Grid Horizontal Img)
-const horizontalImgItems = products.filter(p => p.layout === 'horizontal');
+const horizontalImgItems = normalizedProducts.filter(p => p.layout === 'horizontal');
 
 // 3. 橫式無圖 (Grid Horizontal No-Img)
-const horizontalNoImgItems = products.filter(p => p.layout === 'no_image');
+const horizontalNoImgItems = normalizedProducts.filter(p => p.layout === 'no_image');
 ---
 
 <Layout title="Home" siteTitle={config.site_title}>
@@ -30,22 +102,22 @@ const horizontalNoImgItems = products.filter(p => p.layout === 'no_image');
 
     <div class="container">
         
-        {/* --- 區塊 1: 精選 (直式 - PC 4欄) --- */}
+        {/* --- 區塊 1: 精選 (FEATURED ARRIVALS) --- */}
         {featuredItems.length > 0 && (
             <section>
                 <div class="sec-header">
                     <h2>FEATURED ARRIVALS</h2>
-                    <a href="/category/紀念球" style="font-size: 0.8rem; font-weight: 700;">VIEW ALL →</a>
+                    <a href="/category/all" class="view-all">VIEW ALL →</a>
                 </div>
                 <div class="p-grid grid-vertical">
                     {featuredItems.map(p => (
-                        <ProductCard product={p} solidTagsList={solidTagsList} />
+                        <ProductCard product={p} config={config} />
                     ))}
                 </div>
             </section>
         )}
 
-        {/* --- 區塊 2: 職人/配件 (橫式有圖 - PC 3欄) --- */}
+        {/* --- 區塊 2: 橫式有圖 (COLLECTOR'S ESSENTIALS) --- */}
         {horizontalImgItems.length > 0 && (
             <section>
                 <div class="sec-header">
@@ -53,13 +125,13 @@ const horizontalNoImgItems = products.filter(p => p.layout === 'no_image');
                 </div>
                 <div class="p-grid grid-horizontal-img">
                     {horizontalImgItems.map(p => (
-                        <ProductCard product={p} solidTagsList={solidTagsList} />
+                        <ProductCard product={p} config={config} />
                     ))}
                 </div>
             </section>
         )}
 
-        {/* --- 區塊 3: 服務 (橫式無圖 - PC 4欄) --- */}
+        {/* --- 區塊 3: 橫式無圖 (SERVICES / OTHERS) --- */}
         {horizontalNoImgItems.length > 0 && (
             <section>
                 <div class="sec-header">
@@ -67,13 +139,13 @@ const horizontalNoImgItems = products.filter(p => p.layout === 'no_image');
                 </div>
                 <div class="p-grid grid-horizontal-noimg">
                     {horizontalNoImgItems.map(p => (
-                        <ProductCard product={p} solidTagsList={solidTagsList} />
+                        <ProductCard product={p} config={config} />
                     ))}
                 </div>
             </section>
         )}
 
-        {/* --- 區塊 4: 其他直式商品 (若有) --- */}
+        {/* --- 區塊 4: 更多選品 (MORE COLLECTIONS) --- */}
         {otherVerticals.length > 0 && (
             <section>
                 <div class="sec-header">
@@ -81,7 +153,7 @@ const horizontalNoImgItems = products.filter(p => p.layout === 'no_image');
                 </div>
                 <div class="p-grid grid-vertical">
                     {otherVerticals.map(p => (
-                        <ProductCard product={p} solidTagsList={solidTagsList} />
+                        <ProductCard product={p} config={config} />
                     ))}
                 </div>
             </section>
@@ -98,19 +170,122 @@ const horizontalNoImgItems = products.filter(p => p.layout === 'no_image');
 </Layout>
 
 <style>
+    /* --- CSS 變數 --- */
+    :root {
+        --haku-ink: #3E2723;
+        --haku-paper: #F5F1E8;
+        --section-gap: 80px;
+    }
+
+    .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 0 20px;
+        padding-bottom: 100px;
+    }
+
     /* Hero Styles */
     .hero {
-        height: 70vh; display: flex; flex-direction: column; justify-content: center; align-items: center;
-        text-align: center; background-color: var(--haku-ink); color: var(--haku-paper);
-        padding: 0 10%; margin-bottom: var(--section-gap);
+        height: 70vh; 
+        min-height: 500px;
+        display: flex; 
+        flex-direction: column; 
+        justify-content: center; 
+        align-items: center;
+        text-align: center; 
+        background-color: var(--haku-ink); 
+        color: var(--haku-paper);
+        padding: 0 10%; 
+        margin-bottom: var(--section-gap);
     }
-    .hero h1 { font-family: 'Montserrat', sans-serif; font-size: 3.5rem; margin: 0; line-height: 1; }
-    .hero p { max-width: 600px; margin: 20px 0; font-size: 1.1rem; opacity: 0.8; }
+    .hero h1 { 
+        font-family: 'Montserrat', sans-serif; 
+        font-size: 3.5rem; 
+        font-weight: 900;
+        margin: 0; 
+        line-height: 1.1; 
+        letter-spacing: 2px;
+    }
+    .hero p { 
+        max-width: 600px; 
+        margin: 24px 0 32px; 
+        font-size: 1.1rem; 
+        line-height: 1.8;
+        opacity: 0.9; 
+        font-weight: 300;
+    }
     .hero-btn { 
-        border: 2px solid var(--haku-paper); padding: 12px 40px; 
-        font-weight: 700; transition: 0.3s; margin-top: 20px; color: var(--haku-paper);
+        display: inline-block;
+        border: 2px solid var(--haku-paper); 
+        padding: 14px 40px; 
+        font-weight: 700; 
+        transition: all 0.3s ease; 
+        color: var(--haku-paper);
+        text-decoration: none;
+        letter-spacing: 1px;
+        font-family: 'Montserrat', sans-serif;
+        text-transform: uppercase;
     }
-    .hero-btn:hover { background: var(--haku-paper); color: var(--haku-ink); }
+    .hero-btn:hover { 
+        background: var(--haku-paper); 
+        color: var(--haku-ink); 
+    }
 
-    @media (max-width: 768px) { .hero h1 { font-size: 2.5rem; } }
+    /* Section Styles */
+    section { margin-bottom: var(--section-gap); }
+
+    .sec-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        border-bottom: 3px solid var(--haku-ink);
+        padding-bottom: 15px;
+        margin-bottom: 30px;
+    }
+    .sec-header h2 {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 900;
+        margin: 0;
+        color: var(--haku-ink);
+    }
+    .view-all {
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-decoration: none;
+        color: var(--haku-ink);
+        font-family: 'Montserrat', sans-serif;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+    .view-all:hover { opacity: 1; }
+
+    /* Grid Systems */
+    .p-grid { display: grid; gap: 20px; }
+    
+    /* Vertical: PC 4欄 / Mobile 2欄 */
+    .grid-vertical { grid-template-columns: repeat(2, 1fr); }
+    @media (min-width: 1024px) { 
+        .grid-vertical { grid-template-columns: repeat(4, 1fr); gap: 30px; } 
+    }
+
+    /* Horizontal Img: PC 3欄 / Mobile 1欄 */
+    .grid-horizontal-img { grid-template-columns: 1fr; }
+    @media (min-width: 1024px) { 
+        .grid-horizontal-img { grid-template-columns: repeat(3, 1fr); gap: 30px; } 
+    }
+
+    /* Horizontal No-Img: PC 4欄 / Mobile 1欄 */
+    .grid-horizontal-noimg { grid-template-columns: 1fr; }
+    @media (min-width: 1024px) { 
+        .grid-horizontal-noimg { grid-template-columns: repeat(4, 1fr); gap: 20px; } 
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) { 
+        .hero h1 { font-size: 2.2rem; } 
+        .hero { height: 60vh; min-height: auto; }
+        .sec-header h2 { font-size: 1.2rem; }
+        :root { --section-gap: 60px; }
+    }
 </style>
