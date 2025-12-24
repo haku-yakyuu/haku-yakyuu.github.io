@@ -2,19 +2,83 @@
 const { siteTitle = 'HAKU' } = Astro.props;
 ---
 
-<aside class="sidebar">
+<div id="sidebar-overlay" class="overlay"></div>
+
+<aside id="main-sidebar" class="sidebar">
   <div class="sidebar-header">
     <h1>{siteTitle}</h1>
+    <button id="close-menu" class="close-btn material-symbols-outlined">close</button>
   </div>
-  <nav>
+  
+  <nav class="sidebar-nav">
     <a href="/">首頁</a>
-    <a href="/shop">選品</a>
+    <a href="/shop">所有選品</a>
   </nav>
 </aside>
 
+<script>
+  import { isMenuOpen } from '../store';
+
+  const sidebar = document.getElementById('main-sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const closeBtn = document.getElementById('close-menu');
+
+  // 監聽開關狀態
+  isMenuOpen.subscribe(open => {
+    if (open) {
+      sidebar?.classList.add('active');
+      overlay?.classList.add('active');
+    } else {
+      sidebar?.classList.remove('active');
+      overlay?.classList.remove('active');
+    }
+  });
+
+  const close = () => isMenuOpen.set(false);
+  
+  closeBtn?.addEventListener('click', close);
+  overlay?.addEventListener('click', close);
+</script>
+
 <style>
-  .sidebar { padding: 20px; border-right: 1px solid #eee; }
-  .sidebar-header h1 { margin: 0; font-size: 1.2rem; }
-  nav { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
-  nav a { color: inherit; text-decoration: none; }
+  /* 遮罩層：預設透明且點不到 */
+  .overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); z-index: 1999;
+    opacity: 0; visibility: hidden; transition: 0.3s;
+  }
+  .overlay.active { opacity: 1; visibility: visible; }
+
+  /* 側邊欄：關鍵是 position: fixed 和 left: -280px */
+  .sidebar {
+    position: fixed; /* 讓它浮起來，不佔據頁面空間 */
+    top: 0; 
+    left: -280px; /* 預設藏在螢幕左邊外面 */
+    width: 280px; 
+    height: 100%;
+    background: #F5F1E8; 
+    border-right: 1px solid #3E2723;
+    z-index: 2000; 
+    transition: transform 0.3s ease;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    display: flex; flex-direction: column;
+  }
+  
+  /* 當啟動時，滑出來 */
+  .sidebar.active { transform: translateX(280px); }
+
+  .sidebar-header {
+    padding: 20px; border-bottom: 1px solid rgba(62,39,35,0.1);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .sidebar-header h1 { margin: 0; font-size: 1.5rem; font-family: 'Montserrat', sans-serif; font-weight: 900; }
+  
+  .close-btn { background: none; border: none; cursor: pointer; font-size: 1.5rem; color: #3E2723; }
+
+  .sidebar-nav { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+  .sidebar-nav a { 
+    text-decoration: none; color: #3E2723; font-size: 1.1rem; font-weight: 700;
+    padding-bottom: 5px; border-bottom: 1px solid transparent;
+  }
+  .sidebar-nav a:hover { border-bottom-color: #3E2723; }
 </style>
