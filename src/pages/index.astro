@@ -1,14 +1,19 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import ProductCard from '../components/ProductCard.astro';
+import ShopSidebar from '../components/ShopSidebar.astro';
 import { fetchProducts } from '../utils/api';
 
-// 取得資料
 const { products, config, error } = await fetchProducts();
+const activeProducts = products.filter((p) => p.status === 'active');
 
-// 篩選精選商品
-const featuredProducts = products.filter((p) => 
-  p.status === 'active' && (p.isFeatured === true || p.isFeatured === "true")
+// 1. 抓出所有不重複分類
+const categories = [...new Set(activeProducts.map(p => p.category))];
+const totalCount = activeProducts.length;
+
+// 首頁精選商品
+const featuredProducts = activeProducts.filter((p) => 
+  p.isFeatured === true || p.isFeatured === "true"
 );
 
 // 分組
@@ -18,39 +23,95 @@ const grouped = featuredProducts.reduce((acc, p) => {
   acc[cat].push(p);
   return acc;
 }, {});
-const categories = Object.keys(grouped);
+const featuredCategories = Object.keys(grouped);
 
-// --- 關鍵修正區 ---
-// 這裡定義 pageTitle，讀取你的 config.site_title (HAKU)
-// 如果讀不到，就顯示 "HAKU"
 const pageTitle = `${config?.site_title || "HAKU"} | 首頁`;
 ---
 
 <Layout title={pageTitle}>
-  
-  <header style="text-align:center; padding: 60px 20px; background:#3E2723; color:#F5F1E8;">
-    {/* 這裡讀取 config.site_title 和 config.announcement */}
-    <h1 style="margin:0; font-size: 3rem;">{config?.site_title || "HAKU"}</h1>
-    <p style="opacity:0.8;">{config?.announcement || "職人眼光的棒球選品"}</p>
-  </header>
-
-  <main class="container">
-    {error && <p style="text-align:center; padding:40px;">無法讀取商品資料，請確認 GAS 部署。</p>}
+  <div class="shop-wrapper">
     
-    {categories.map(cat => (
-      <section style="margin-top: 60px;">
-        <h2 style="border-bottom: 2px solid #3E2723; padding-bottom:10px; margin-bottom: 30px;">{cat}</h2>
-        <div class="grid-v">
-          {grouped[cat].map((p) => <ProductCard product={p} config={config || {}} />)}
-        </div>
-      </section>
-    ))}
-  </main>
+    <ShopSidebar 
+      categories={categories} 
+      activeCategory="home" 
+      totalCount={totalCount} 
+      products={activeProducts} 
+    />
 
+    <main class="shop-content">
+      <header class="hero-section">
+        <h1 class="site-title">{config?.site_title || "HAKU"}</h1>
+        <p class="site-desc">{config?.announcement || "職人眼光的棒球選品"}</p>
+      </header>
+
+      {error && <p class="msg">載入失敗。</p>}
+
+      {featuredCategories.map(cat => {
+        const catProducts = grouped[cat];
+        const verticalItems = catProducts.filter(p => p.layout === 'vertical');
+        const horizontalItems = catProducts.filter(p => p.layout === 'horizontal');
+        const noImageItems = catProducts.filter(p => p.layout === 'no_image');
+
+        return (
+          <section>
+            <h3 class="cat-header">{cat} <span>FEATURED</span></h3>
+
+            {/* 1. Vertical Grid */}
+            {verticalItems.length > 0 && (
+              <div class="p-grid grid-vertical">
+                {verticalItems.map(p => <ProductCard product={p} config={config || {}} />)}
+              </div>
+            )}
+
+            {/* 2. Horizontal Image Grid (手機強制單欄) */}
+            {horizontalItems.length > 0 && (
+              <div class="p-grid grid-horizontal-img">
+                {horizontalItems.map(p => <ProductCard product={p} config={config || {}} />)}
+              </div>
+            )}
+
+            {/* 3. Horizontal No Image Grid (手機強制單欄) */}
+            {noImageItems.length > 0 && (
+              <div class="p-grid grid-horizontal-noimg">
+                {noImageItems.map(p => <ProductCard product={p} config={config || {}} />)}
+              </div>
+            )}
+          </section>
+        )
+      })}
+    </main>
+  </div>
 </Layout>
 
 <style>
-  .container { max-width: 1400px; margin: 0 auto; padding: 0 5%; }
-  .grid-v { display: grid; gap: 20px; grid-template-columns: repeat(2, 1fr); }
-  @media (min-width: 1024px) { .grid-v { grid-template-columns: repeat(4, 1fr); gap: 30px; } }
+  /* 佈局與 RWD */
+  .shop-wrapper { max-width: 1400px; margin: 0 auto; padding: 40px 20px; display: block; }
+  @media (min-width: 1024px) {
+    .shop-wrapper { display: flex; gap: 60px; padding-top: 60px; align-items: flex-start; }
+    .shop-content { flex-grow: 1; min-width: 0; }
+  }
+
+  .hero-section { text-align: center; margin-bottom: 60px; padding: 40px 0; background: var(--haku-ink); color: var(--haku-paper); }
+  .site-title { font-family: 'Montserrat', sans-serif; font-size: 3rem; margin: 0; }
+  .site-desc { opacity: 0.8; margin-top: 10px; }
+
+  .cat-header { font-family: 'Montserrat', sans-serif; font-size: 1.2rem; border-bottom: 1px solid rgba(62,39,35,0.2); padding-bottom: 10px; margin: 60px 0 30px 0; }
+  .cat-header span { font-size: 0.8rem; font-weight: 400; opacity: 0.7; font-family: 'Noto Sans TC'; margin-left: 10px; }
+
+  /* --- Grid System --- */
+  .p-grid { display: grid; gap: 20px; margin-bottom: 50px; }
+  
+  /* Vertical: 手機2欄 / 桌機4欄 */
+  .grid-vertical { grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 1024px) { .grid-vertical { grid-template-columns: repeat(4, 1fr); gap: 30px; } }
+  
+  /* Horizontal: 手機強制 1欄 / 桌機3欄 */
+  .grid-horizontal-img { grid-template-columns: 1fr; }
+  @media (min-width: 1024px) { .grid-horizontal-img { grid-template-columns: repeat(3, 1fr); gap: 30px; } }
+  
+  /* NoImage: 手機強制 1欄 / 桌機4欄 */
+  .grid-horizontal-noimg { grid-template-columns: 1fr; }
+  @media (min-width: 1024px) { .grid-horizontal-noimg { grid-template-columns: repeat(4, 1fr); gap: 20px; } }
+
+  .msg { text-align: center; padding: 40px; }
 </style>
