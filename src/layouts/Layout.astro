@@ -1,128 +1,51 @@
 ---
-// src/layouts/Layout.astro
-import Sidebar from '../components/Sidebar.astro';
-import CartSidebar from '../components/CartSidebar.astro';
-
 interface Props {
 	title: string;
+	config?: any;
 }
 
-const { title } = Astro.props;
+const { title, config } = Astro.props;
+
+// --- 驗證碼邏輯：優先讀取試算表，若無則使用你提供的這串「寫死備用」 ---
+const DEFAULT_VERIFICATION = "RSCsK8X-OoCTr2uKZ2oKz-QbY1SjZWYLZRIfQz9NKWY";
+const googleVerification = config?.google_verification || DEFAULT_VERIFICATION;
 ---
 
 <!doctype html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="description" content="HAKU YAKYUU | 棒球選品與收藏紀錄" />
-		<meta name="viewport" content="width=device-width" />
+		<meta name="description" content={config?.announcement || "HAKU 職人眼光的棒球選品"} />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		
+		{/* 搜尋引擎驗證 (優先使用變數) */}
+		<meta name="google-site-verification" content={googleVerification} />
+		
 		<title>{title}</title>
-		<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&family=Noto+Sans+TC:wght@400;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+
+		{/* Google Fonts & Icons */}
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
 	</head>
 	<body>
-		
-		{/* --- 1. 插入側邊欄組件 (預設隱藏，由 store 控制開啟) --- */}
-		<Sidebar />
-		<CartSidebar />
-
-		{/* --- Navigation --- */}
-		<nav>
-			<div class="nav-left">
-				{/* 這裡已經有 id="menu-trigger" */}
-				<span class="material-symbols-outlined menu-btn" id="menu-trigger">menu</span>
-			</div>
-			<a href="/" class="nav-logo">HAKU</a>
-			<div class="nav-icons">
-				<span class="material-symbols-outlined">search</span>
-				{/* 這裡已經有 id="cart-trigger" */}
-				<span class="material-symbols-outlined" id="cart-trigger">shopping_bag</span>
-			</div>
-		</nav>
-
-		{/* --- 頁面主要內容 (Slot) --- */}
 		<slot />
-
-		{/* --- Footer --- */}
-		<footer>
-			<div class="container footer-content">
-				<div>
-					<div class="footer-logo">HAKU</div>
-					<p class="footer-desc">紀錄每一投一打的經典瞬間。<br>來自職人眼光的棒球紀念品選物店。</p>
-				</div>
-				<div class="footer-links">
-					<h4>SHOP</h4>
-					<ul><li><a href="/shop">所有商品</a></li><li><a href="/category/ball">紀念球</a></li><li><a href="/category/acc">配件</a></li></ul>
-				</div>
-				<div class="footer-links">
-					<h4>INFO</h4>
-					<ul><li>關於我們</li><li>配送政策</li><li>隱私權政策</li></ul>
-				</div>
-				<div class="footer-links">
-					<h4>CONNECT</h4>
-					<ul><li>Instagram</li><li>Facebook</li><li>LINE 客服</li></ul>
-				</div>
-			</div>
-			<div class="copyright">© 2025 HAKU YAKYUU SELECT. ALL RIGHTS RESERVED.</div>
-		</footer>
-
-		{/* --- 2. 控制側邊欄開關的腳本 --- */}
-		<script>
-			import { isMenuOpen, isCartOpen } from '../store';
-
-			// 綁定左側選單按鈕
-			const menuBtn = document.getElementById('menu-trigger');
-			menuBtn?.addEventListener('click', () => {
-				isMenuOpen.set(true);
-			});
-
-			// 綁定右側購物車按鈕
-			const cartBtn = document.getElementById('cart-trigger');
-			cartBtn?.addEventListener('click', () => {
-				isCartOpen.set(true);
-			});
-		</script>
+		<style is:global>
+			:root {
+				--haku-ink: #3E2723;
+				--haku-paper: #F5F1E8;
+				--haku-accent: #DCD7CE;
+				--placeholder-bg: #E0E0E0;
+			}
+			html {
+				font-family: 'Noto Sans TC', sans-serif;
+				background: var(--haku-paper);
+				color: var(--haku-ink);
+			}
+			body { margin: 0; padding: 0; }
+		</style>
 	</body>
 </html>
-
-<style is:global>
-	:root {
-		--haku-ink: #3E2723;
-		--haku-paper: #F5F1E8;
-		--placeholder-bg: #DCD7CE;
-		--section-gap: 120px;
-	}
-	* { box-sizing: border-box; }
-	html { font-family: 'Noto Sans TC', sans-serif; background: var(--haku-paper); color: var(--haku-ink); }
-	body { margin: 0; padding: 0; line-height: 1.6; }
-	a { text-decoration: none; color: inherit; }
-	ul { list-style: none; padding: 0; margin: 0; }
-
-	/* Nav & Footer Styles */
-	nav {
-		position: sticky; top: 0; z-index: 1000;
-		background-color: var(--haku-paper);
-		border-bottom: 1px solid rgba(62, 39, 35, 0.1);
-		display: grid; grid-template-columns: 1fr auto 1fr;
-		align-items: center; padding: 15px 5%;
-	}
-	.nav-left { display: flex; justify-content: flex-start; }
-	.nav-logo { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.8rem; letter-spacing: 2px; }
-	.nav-icons { display: flex; justify-content: flex-end; gap: 20px; cursor: pointer; }
-	.menu-btn { cursor: pointer; }
-
-	footer { background-color: var(--haku-ink); color: var(--haku-paper); margin-top: var(--section-gap); padding: 80px 5% 40px; }
-	.footer-content { display: grid; grid-template-columns: 1fr; gap: 40px; max-width: 1400px; margin: 0 auto; }
-	@media (min-width: 1024px) { .footer-content { grid-template-columns: 2fr 1fr 1fr 1fr; } }
-	.footer-logo { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 2rem; margin-bottom: 20px; }
-	.footer-desc { opacity: 0.6; font-size: 0.9rem; }
-	.footer-links h4 { margin-bottom: 20px; border-bottom: 1px solid rgba(245, 241, 232, 0.3); padding-bottom: 10px; font-size: 0.9rem; }
-	.footer-links li { margin-bottom: 10px; font-size: 0.85rem; opacity: 0.7; }
-	.footer-links li:hover { opacity: 1; text-decoration: underline; }
-	.copyright { margin-top: 60px; text-align: center; font-size: 0.75rem; opacity: 0.4; letter-spacing: 1px; }
-
-	/* Global Grid Utility */
-	.container { max-width: 1400px; margin: 0 auto; padding: 0 5%; }
-	.grid-v { display: grid; gap: 20px; grid-template-columns: repeat(2, 1fr); }
-	@media (min-width: 1024px) { .grid-v { grid-template-columns: repeat(4, 1fr); gap: 30px; } }
-</style>
