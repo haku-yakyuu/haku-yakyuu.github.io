@@ -31,7 +31,7 @@
   const container = document.getElementById('cart-items-container');
   const totalEl = document.getElementById('cart-total');
 
-  // 開關邏輯
+  // 1. 開關側邊欄邏輯
   isCartOpen.subscribe(open => {
     if (open) {
       sidebar?.classList.add('active');
@@ -46,11 +46,11 @@
   closeBtn?.addEventListener('click', close);
   overlay?.addEventListener('click', close);
 
-  // 渲染購物車 (依據新需求：左圖右文、上下置中)
+  // 2. 渲染購物車邏輯
   cartItems.subscribe(items => {
     if (!container || !totalEl) return;
     
-    // 計算總額
+    // 計算總金額
     const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     totalEl.textContent = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(total);
 
@@ -60,41 +60,50 @@
     }
 
     container.innerHTML = '';
+    
     items.forEach(item => {
       const el = document.createElement('div');
       el.className = 'cart-item';
       
-      // 處理圖片
+      // --- 圖片邏輯處理 (與 ProductCard 一致) ---
       let imgHtml = '';
-      if (item.images || item.layout_images) {
-        const raw = item.layout_images || item.images;
-        const firstImg = raw.split(',')[0].trim();
-        // 修正路徑
-        const imgSrc = (firstImg.startsWith('http') || firstImg.startsWith('/')) ? firstImg : '/' + firstImg;
-        if(imgSrc) {
-           imgHtml = `<div class="item-img"><img src="${imgSrc}" alt="${item.name}"></div>`;
+      const rawImages = item.layout_images || item.images || "";
+      
+      if (rawImages) {
+        const firstRaw = rawImages.split(',')[0].trim();
+        if (firstRaw) {
+          // 判斷是否需要補上開頭斜線
+          let imgSrc = firstRaw;
+          if (!imgSrc.startsWith('http') && !imgSrc.startsWith('/')) {
+            imgSrc = '/' + imgSrc;
+          }
+          imgHtml = `<div class="item-img"><img src="${imgSrc}" alt="${item.name}"></div>`;
         }
       }
 
       el.innerHTML = `
         ${imgHtml}
         <div class="item-info">
+          
           <div class="info-top">
             <span class="item-name">${item.name}</span>
             <span class="item-price">$${item.price}</span>
           </div>
+
           <div class="info-bottom">
             <div class="qty-control">
               <button class="qty-btn minus">-</button>
               <span class="qty-num">${item.quantity}</span>
               <button class="qty-btn plus">+</button>
             </div>
+            
             <button class="remove-btn material-symbols-outlined">close</button>
           </div>
+
         </div>
       `;
 
-      // 綁定事件
+      // 綁定按鈕事件
       el.querySelector('.minus')?.addEventListener('click', () => updateQuantity(item.id, item.quantity - 1));
       el.querySelector('.plus')?.addEventListener('click', () => updateQuantity(item.id, item.quantity + 1));
       el.querySelector('.remove-btn')?.addEventListener('click', () => removeFromCart(item.id));
@@ -105,6 +114,7 @@
 </script>
 
 <style>
+  /* 遮罩與側邊欄基礎設定 */
   .overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.5); z-index: 2999;
@@ -125,32 +135,113 @@
     padding: 20px; border-bottom: 1px solid rgba(62,39,35,0.1);
     display: flex; justify-content: space-between; align-items: center; background: #F5F1E8;
   }
-  .cart-header h2 { margin: 0; font-size: 1.2rem; font-family: 'Montserrat', sans-serif; }
+  .cart-header h2 { margin: 0; font-size: 1.2rem; font-family: 'Montserrat', sans-serif; font-weight: 900; }
   .close-btn { background: none; border: none; cursor: pointer; font-size: 1.5rem; color: #3E2723; }
 
   .cart-items { flex-grow: 1; overflow-y: auto; padding: 20px; }
   .empty-msg { text-align: center; opacity: 0.5; margin-top: 40px; }
 
-  /* --- 購物車項目樣式 (左圖右文) --- */
-  .cart-item { display: flex; gap: 15px; margin-bottom: 20px; align-items: center; border-bottom: 1px solid rgba(62,39,35,0.05); padding-bottom: 20px; }
+  /* --- 購物車項目 (Flex 佈局) --- */
+  .cart-item { 
+    display: flex; 
+    gap: 15px; 
+    margin-bottom: 25px; 
+    align-items: center; /* 讓左圖與右文垂直置中 */
+    border-bottom: 1px solid rgba(62,39,35,0.1); 
+    padding-bottom: 25px; 
+  }
+  .cart-item:last-child { border-bottom: none; }
   
-  .item-img { width: 70px; height: 70px; flex-shrink: 0; background: #DCD7CE; border-radius: 4px; overflow: hidden; }
+  /* 左側圖片區 (關鍵：flex-shrink: 0 防止被擠壓) */
+  .item-img { 
+    width: 80px; 
+    height: 80px; 
+    flex-shrink: 0; 
+    background: #DCD7CE; 
+    border: 1px solid rgba(62,39,35,0.1);
+  }
   .item-img img { width: 100%; height: 100%; object-fit: cover; }
   
-  .item-info { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+  /* 右側文字區 */
+  .item-info { 
+    flex-grow: 1; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 12px; /* 上下區塊間距 */
+  }
   
-  .info-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-  .item-name { font-size: 0.95rem; font-weight: 700; line-height: 1.3; }
-  .item-price { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1rem; }
+  /* 上半部：品名與價格 */
+  .info-top { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: flex-start; 
+    gap: 10px; 
+  }
+  .item-name { 
+    font-size: 0.9rem; 
+    font-weight: 700; 
+    line-height: 1.3; 
+    color: #3E2723;
+  }
+  .item-price { 
+    font-family: 'Montserrat', sans-serif; 
+    font-weight: 700; 
+    font-size: 1rem; 
+    white-space: nowrap;
+  }
   
-  .info-bottom { display: flex; justify-content: space-between; align-items: center; }
+  /* 下半部：控制器與移除鈕 */
+  .info-bottom { 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; /* 控制器與移除鈕的間距 */
+  }
   
-  .qty-control { display: flex; align-items: center; border: 1px solid #3E2723; border-radius: 4px; overflow: hidden; }
-  .qty-btn { background: none; border: none; width: 24px; height: 24px; cursor: pointer; color: #3E2723; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+  /* --- 數量控制器 (框框設計) --- */
+  .qty-control { 
+    display: flex; 
+    align-items: center; 
+    border: 1px solid #3E2723; /* 實線框 */
+    height: 32px;
+  }
+  .qty-btn { 
+    background: none; 
+    border: none; 
+    width: 32px; 
+    height: 100%; 
+    cursor: pointer; 
+    color: #3E2723; 
+    font-size: 1.2rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
   .qty-btn:hover { background: rgba(62,39,35,0.1); }
-  .qty-num { width: 24px; text-align: center; font-size: 0.9rem; font-family: 'Montserrat', sans-serif; }
-  
-  .remove-btn { background: none; border: none; cursor: pointer; color: #D32F2F; font-size: 1.2rem; display: flex; align-items: center; }
+  .qty-num { 
+    width: 32px; 
+    text-align: center; 
+    font-size: 0.9rem; 
+    font-family: 'Montserrat', sans-serif; 
+    font-weight: 700;
+  }
+
+  /* --- 移除按鈕 (框框設計) --- */
+  .remove-btn { 
+    background: none; 
+    border: 1px solid #3E2723; /* 實線框 */
+    height: 32px;
+    width: 32px;
+    cursor: pointer; 
+    color: #3E2723; 
+    font-size: 1.2rem; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .remove-btn:hover { 
+    background: #3E2723; 
+    color: #F5F1E8; 
+  }
 
   /* Footer */
   .cart-footer { padding: 20px; border-top: 1px solid rgba(62,39,35,0.1); background: #F5F1E8; }
