@@ -1,78 +1,88 @@
 ---
-// src/components/Sidebar.astro
-import { fetchProducts } from '../utils/api';
-
-// 抓取分類資料
-const { products } = await fetchProducts();
-const categories = [...new Set(products.map((p: any) => p.category))];
+// src/components/CartSidebar.astro
 ---
 
-<aside id="sidebar-menu" class="sidebar">
-  <div class="sidebar-header">
-    <div class="logo">MENU</div>
-    <span class="material-symbols-outlined close-btn" id="close-menu">close</span>
+<aside id="sidebar-cart" class="sidebar-cart">
+  <div class="cart-header">
+    <div class="title">SHOPPING BAG</div>
+    <span class="material-symbols-outlined close-btn" id="close-cart">close</span>
   </div>
-  
-  <div class="sidebar-content">
-    <ul class="menu-list">
-      <li><a href="/shop">ALL PRODUCTS <span>所有選品</span></a></li>
-      {categories.map((cat: unknown) => (
-        <li>
-          <a href={`/shop?category=${cat}`}>{String(cat)}</a>
-        </li>
-      ))}
-    </ul>
 
-    <div class="menu-footer">
-       <a href="/about">關於我們</a>
-       <a href="/policy">運送政策</a>
+  <div class="cart-items" id="cart-container">
     </div>
+
+  <div class="cart-footer">
+    <div class="total-row">
+      <span>TOTAL</span>
+      <span id="cart-total">$ 0</span>
+    </div>
+    <button class="checkout-btn">前往結帳</button>
   </div>
 </aside>
 
-<div id="overlay-menu" class="overlay"></div>
+<div id="overlay-cart" class="overlay-cart"></div>
 
 <style>
   :root { --haku-ink: #3E2723; --haku-paper: #F5F1E8; }
-  
-  .sidebar {
-    position: fixed; top: 0; left: 0; bottom: 0; width: 300px;
+
+  .sidebar-cart {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 350px; /* 稍寬一點 */
     background: var(--haku-paper); color: var(--haku-ink);
-    z-index: 2000; transform: translateX(-100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    display: flex; flex-direction: column; border-right: 1px solid rgba(62,39,35,0.1);
+    z-index: 2000; transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex; flex-direction: column; border-left: 1px solid rgba(62,39,35,0.1);
   }
-  .sidebar.open { transform: translateX(0); }
+  .sidebar-cart.open { transform: translateX(0); }
   
-  .sidebar-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(62,39,35,0.1); }
-  .logo { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.2rem; }
+  .cart-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(62,39,35,0.1); }
+  .title { font-family: 'Montserrat', sans-serif; font-weight: 900; }
   .close-btn { cursor: pointer; }
 
-  .sidebar-content { padding: 40px 20px; flex-grow: 1; display: flex; flex-direction: column; }
-  .menu-list { list-style: none; padding: 0; }
-  .menu-list li { margin-bottom: 20px; }
-  .menu-list a { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1.1rem; display: block; text-decoration: none; color: var(--haku-ink); }
-  .menu-list a span { font-family: 'Noto Sans TC'; font-weight: 400; font-size: 0.8rem; margin-left: 10px; opacity: 0.6; }
+  .cart-items { flex-grow: 1; overflow-y: auto; padding: 20px; }
   
-  .menu-footer { margin-top: auto; border-top: 1px solid rgba(62,39,35,0.1); padding-top: 20px; display: flex; flex-direction: column; gap: 10px; }
-  .menu-footer a { font-size: 0.9rem; opacity: 0.7; }
+  /* --- 購物車商品樣式 --- */
+  /* 這些樣式會被 JS 生成的 HTML 使用，所以需要 :global 或寫在 global css，這邊用一般的即可因為是在元件內 */
+  .c-item { display: flex; gap: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(62,39,35,0.1); }
+  
+  /* 圖片區域處理 */
+  .c-img-box { width: 80px; height: 80px; flex-shrink: 0; background: var(--haku-ink); display: flex; justify-content: center; align-items: center; border-radius: 4px; overflow: hidden; }
+  .c-img-box img { width: 100%; height: 100%; object-fit: cover; }
+  .c-img-box .icon { color: var(--haku-paper); font-size: 32px; } /* 無圖時的 ICON 顏色 */
 
-  .overlay {
+  .c-info { flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
+  .c-name { font-size: 0.9rem; font-weight: 700; line-height: 1.3; margin-bottom: 5px; }
+  .c-price { font-family: 'Montserrat'; font-weight: 700; font-size: 0.95rem; }
+  
+  .c-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }
+  .qty-box { display: flex; align-items: center; gap: 10px; border: 1px solid var(--haku-ink); padding: 2px 8px; border-radius: 2px; }
+  .qty-btn { cursor: pointer; font-size: 1rem; user-select: none; font-weight: bold; }
+  .qty-num { font-family: 'Montserrat'; font-size: 0.9rem; min-width: 20px; text-align: center; }
+  .remove-btn { cursor: pointer; opacity: 0.5; font-size: 1.2rem; }
+  .remove-btn:hover { opacity: 1; color: #D32F2F; }
+
+  .cart-footer { padding: 20px; border-top: 1px solid rgba(62,39,35,0.1); background: var(--haku-paper); }
+  .total-row { display: flex; justify-content: space-between; margin-bottom: 15px; font-family: 'Montserrat'; font-weight: 900; font-size: 1.2rem; }
+  .checkout-btn { width: 100%; background: var(--haku-ink); color: var(--haku-paper); border: none; padding: 15px; font-weight: 700; cursor: pointer; font-size: 1rem; transition: 0.3s; }
+  .checkout-btn:hover { opacity: 0.9; }
+
+  .overlay-cart {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(62,39,35,0.4); backdrop-filter: blur(2px);
     z-index: 1500; opacity: 0; pointer-events: none; transition: opacity 0.4s;
   }
-  .overlay.active { opacity: 1; pointer-events: auto; }
+  .overlay-cart.active { opacity: 1; pointer-events: auto; }
 </style>
 
 <script>
-  import { isMenuOpen } from '../store';
+  import { isCartOpen, cartItems, removeFromCart, updateQuantity } from '../store';
 
-  const sidebar = document.getElementById('sidebar-menu');
-  const overlay = document.getElementById('overlay-menu');
-  const closeBtn = document.getElementById('close-menu');
+  const sidebar = document.getElementById('sidebar-cart');
+  const overlay = document.getElementById('overlay-cart');
+  const closeBtn = document.getElementById('close-cart');
+  const container = document.getElementById('cart-container');
+  const totalEl = document.getElementById('cart-total');
 
-  // 訂閱狀態改變 UI
-  isMenuOpen.subscribe(isOpen => {
+  // 開關邏輯
+  isCartOpen.subscribe(isOpen => {
     if (isOpen) {
       sidebar?.classList.add('open');
       overlay?.classList.add('active');
@@ -82,7 +92,72 @@ const categories = [...new Set(products.map((p: any) => p.category))];
     }
   });
 
-  // 關閉事件
-  closeBtn?.addEventListener('click', () => isMenuOpen.set(false));
-  overlay?.addEventListener('click', () => isMenuOpen.set(false));
+  closeBtn?.addEventListener('click', () => isCartOpen.set(false));
+  overlay?.addEventListener('click', () => isCartOpen.set(false));
+
+  // 渲染購物車邏輯
+  cartItems.subscribe(items => {
+    if (!container || !totalEl) return;
+    
+    // 計算總金額
+    const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    totalEl.innerText = `$ ${total.toLocaleString()}`;
+
+    // 渲染列表 HTML
+    if (items.length === 0) {
+      container.innerHTML = '<p style="text-align:center; opacity:0.6; margin-top:50px;">購物車是空的</p>';
+      return;
+    }
+
+    container.innerHTML = items.map(item => `
+      <div class="c-item">
+        <div class="c-img-box">
+          ${item.image === 'no_image' 
+            ? `<span class="material-symbols-outlined icon">shopping_bag</span>` 
+            : `<img src="${item.image}" alt="${item.name}">`
+          }
+        </div>
+        <div class="c-info">
+          <div>
+            <div class="c-name">${item.name}</div>
+            <div class="c-price">$ ${item.price.toLocaleString()}</div>
+          </div>
+          <div class="c-controls">
+            <div class="qty-box">
+              <span class="qty-btn js-dec" data-id="${item.id}">-</span>
+              <span class="qty-num">${item.quantity}</span>
+              <span class="qty-btn js-inc" data-id="${item.id}">+</span>
+            </div>
+            <span class="material-symbols-outlined remove-btn js-remove" data-id="${item.id}">close</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    // 重新綁定事件監聽器 (因為 innerHTML 重繪了)
+    attachListeners();
+  });
+
+  function attachListeners() {
+    document.querySelectorAll('.js-inc').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = (e.target as HTMLElement).dataset.id;
+        if(id) updateQuantity(id, 'inc');
+      });
+    });
+
+    document.querySelectorAll('.js-dec').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = (e.target as HTMLElement).dataset.id;
+        if(id) updateQuantity(id, 'dec');
+      });
+    });
+
+    document.querySelectorAll('.js-remove').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = (e.target as HTMLElement).dataset.id;
+        if(id) removeFromCart(id);
+      });
+    });
+  }
 </script>
