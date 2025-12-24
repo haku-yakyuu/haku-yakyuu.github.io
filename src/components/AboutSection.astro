@@ -7,14 +7,14 @@ const { config } = Astro.props;
 // --- 1. 設定內容來源 ---
 const aboutTitle = config?.about_title || "ABOUT US";
 
-// 預設文字 (使用反引號 ` 可直接換行)
-const defaultText = \`我們最早起步於棒球競標社團，在社群交流與販售中累積經驗，也逐步建立對商品品質與交易信任的重視。
+// 修正：這裡直接使用反引號，不加反斜線
+const defaultText = `我們最早起步於棒球競標社團，在社群交流與販售中累積經驗，也逐步建立對商品品質與交易信任的重視。
 隨著經營方式成熟，開始進駐 Yahoo 奇摩拍賣，並同步於 蝦皮購物 進行寄賣，讓更多人能透過不同平台找到我們。
 
 目前官方網站作為商品展示與資訊整合平台，可瀏覽我們販售過與現正提供的商品內容，但尚未開放線上直接下單功能。
-若對商品有興趣，歡迎加入 LINE 官方帳號 LINE @191wyokh 私訊洽詢，我們將協助確認庫存、報價與寄送方式。\`;
+若對商品有興趣，歡迎加入 LINE 官方帳號 LINE @191wyokh 私訊洽詢，我們將協助確認庫存、報價與寄送方式。`;
 
-// 處理換行：依據 \n 切割成陣列
+// 處理換行
 const rawText = config?.about_text || defaultText;
 const aboutText = rawText.split('\n');
 
@@ -43,7 +43,6 @@ const yahooUrl = config?.yahoo_url || "https://tw.bid.yahoo.com/";
 
       <div class="text-body">
         {aboutText.map((paragraph: string) => (
-          // 判斷是否為空行，空行則插入換行標籤，有字則插入段落
           paragraph.trim() ? <p>{paragraph}</p> : <br/>
         ))}
       </div>
@@ -65,12 +64,12 @@ const yahooUrl = config?.yahoo_url || "https://tw.bid.yahoo.com/";
   .about-section { padding: 80px 20px; background-color: var(--haku-paper); border-top: 1px solid rgba(62,39,35,0.1); }
   .container { max-width: 1200px; margin: 0 auto; }
 
-  /* 無圖模式 (置中) */
+  /* 無圖模式 */
   .container.no-image { max-width: 800px; text-align: center; }
   .container.no-image .btn-group { justify-content: center; }
   .container.no-image .text-body { text-align: left; display: inline-block; text-align-last: left; }
 
-  /* 有圖模式 (雙欄) */
+  /* 有圖模式 */
   .container.has-image { display: grid; grid-template-columns: 1fr; gap: 40px; }
   @media (min-width: 1024px) {
     .container.has-image { grid-template-columns: 1fr 1fr; align-items: center; gap: 60px; }
