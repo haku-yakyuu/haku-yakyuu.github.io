@@ -1,147 +1,360 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import Header from '../../components/Header.astro';
-import Footer from '../../components/Footer.astro';
-import ConfigService from '../../services/configService';
+import { fetchProducts } from '../../utils/api';
 
 export async function getStaticPaths() {
-  const { products } = await ConfigService.fetchData();
-  return products.map((product) => ({
-    params: { id: product.id },
-    props: { product },
+  const { products } = await fetchProducts();
+  return products.map((p) => ({
+    params: { id: p.id },
+    props: { product: p },
   }));
 }
 
 const { product } = Astro.props;
-const { config } = await ConfigService.fetchData();
+const { config } = await fetchProducts();
 
-// 設定頁面標題
-const pageTitle = `${product.name} | HAKU`;
-// 取得商品圖片 (如果有的話)
-const productImage = product.image || "";
+// --- 圖片資料處理 ---
+const rawImages = product.layout_images || product.images || "";
+const imagesArr = rawImages.split(',')
+  .map((url: string) => {
+    let cleanUrl = url.trim();
+    if (!cleanUrl) return null;
+    if (cleanUrl.startsWith('http')) return cleanUrl;
+    if (!cleanUrl.startsWith('/')) return '/' + cleanUrl;
+    return cleanUrl;
+  })
+  .filter(Boolean);
+
+const hasImages = imagesArr.length > 0;
+const priceStr = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(product.price);
+const pageTitle = `${product.name} | ${config?.site_title || 'HAKU'}`;
+
+// --- 購物車資料 (使用 encodeURIComponent 避免引號問題) ---
+const productData = {
+  id: product.id,
+  name: product.name,
+  price: product.price,
+  layout: hasImages ? imagesArr[0] : 'no_image' 
+};
+const safeJson = encodeURIComponent(JSON.stringify(productData));
 ---
 
-<Layout title={pageTitle} config={config} image={productImage}>
-  <Header currentPath="shop" config={config} />
-  
-  <main class="product-detail-container">
-    <div class="product-image-box">
-      {product.image ? (
-        <img src={product.image} alt={product.name} transition:name={`image-${product.id}`} />
-      ) : (
-        <div class="placeholder">No Image</div>
-      )}
-    </div>
-
-    <div class="product-info-box">
-      <h1 class="title">{product.name}</h1>
-      <p class="price">NT$ {product.price}</p>
+<Layout title={pageTitle}>
+  <main class="container product-detail">
+    
+    <div class="detail-grid">
       
-      <div class="divider"></div>
+      {/* --- 左側：圖片輪播區域 --- */}
+      <div class="gallery-section">
+        
+        {/* 主圖顯示區 (Carousel) */}
+        <div class="main-image-wrapper" id="carousel-container">
+          {hasImages ? (
+            <>
+              {/* 圖片本體 */}
+              <img id="main-img" src={imagesArr[0]} alt={product.name} data-images={JSON.stringify(imagesArr)} />
+              
+              {/* 電腦版：左右箭頭按鈕 */}
+              <button id="prev-btn" class="nav-btn prev material-symbols-outlined">chevron_left</button>
+              <button id="next-btn" class="nav-btn next material-symbols-outlined">chevron_right</button>
 
-      <div class="description" set:html={product.description ? product.description.replace(/\n/g, '<br/>') : '暫無商品描述'}></div>
-      
-      <div class="action-area">
-          {/* 這裡未來可以加入購買按鈕或連結 */}
-           <a href={product.link || "#"} target="_blank" class={`buy-btn ${product.status === 'soldout' ? 'disabled' : ''}`}>
-            {product.status === 'soldout' ? '已售完' : '前往購買頁面'}
-          </a>
+              {/* 手機版：隱形點擊區域 (左/右 20% 寬度) */}
+              <div id="tap-prev" class="tap-zone left"></div>
+              <div id="tap-next" class="tap-zone right"></div>
+              
+              {/* 頁碼顯示 (選擇性) */}
+              <div class="image-counter">
+                <span id="current-idx">1</span> / {imagesArr.length}
+              </div>
+            </>
+          ) : (
+            <div class="no-image-placeholder">
+              <span class="material-symbols-outlined">shopping_bag</span>
+              <p>NO IMAGE</p>
+            </div>
+          )}
+        </div>
+
+        {/* 縮圖列表 (多張圖才顯示) */}
+        {imagesArr.length > 1 && (
+          <div class="thumb-list">
+            {imagesArr.map((img: string, index: number) => (
+              <div class={`thumb-item ${index === 0 ? 'active' : ''}`} data-index={index}>
+                <img src={img} alt={`thumb-${index}`} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-       <a href="/shop" class="back-link">← 返回商品列表</a>
+
+      {/* --- 右側：資訊區域 --- */}
+      <div class="info-section">
+        
+        <div class="info-header">
+          <div class="badges">
+            {product.isFeatured && <span class="badge">精選</span>}
+            <span class="product-code">{product.id.toUpperCase()}</span>
+          </div>
+          <h1 class="product-title">{product.name}</h1>
+          <div class="product-price">{priceStr}</div>
+        </div>
+
+        <div class="product-desc">
+          <p>{product.desc || "暫無商品說明。"}</p>
+        </div>
+
+        {/* 數量控制 (隱藏庫存數字) */}
+        <div class="action-area">
+          <label class="qty-label">數量</label>
+          <div class="qty-control-lg">
+            <button id="qty-minus" class="qty-btn">−</button>
+            <span id="qty-val" class="qty-val">1</span>
+            <button id="qty-plus" class="qty-btn">+</button>
+          </div>
+        </div>
+
+        {/* 按鈕組 */}
+        <div class="btn-group">
+          <button id="add-to-cart-btn" class="btn-primary" data-safe-json={safeJson}>
+            加入購物車
+          </button>
+          <a href="https://lin.ee/xeHmvkN" target="_blank" class="btn-outline">
+            <span class="material-symbols-outlined">chat</span>
+            透過 LINE 查詢
+          </a>
+        </div>
+
+      </div>
     </div>
   </main>
-
-  <Footer config={config} />
 </Layout>
 
-<style>
-  .product-detail-container {
-    max-width: 1000px;
-    margin: 40px auto 80px;
-    padding: 0 20px;
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 40px;
-  }
+<script>
+  import { addToCart } from '../../store';
 
-  @media (min-width: 768px) {
-    .product-detail-container {
-      grid-template-columns: 1fr 1fr;
-      align-items: start;
-      margin-top: 80px;
+  document.addEventListener('astro:page-load', () => {
+    // 1. 元素選取
+    const mainImg = document.getElementById('main-img') as HTMLImageElement;
+    const thumbs = document.querySelectorAll('.thumb-item');
+    const container = document.getElementById('carousel-container');
+    const currentIdxEl = document.getElementById('current-idx');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const tapPrev = document.getElementById('tap-prev');
+    const tapNext = document.getElementById('tap-next');
+    
+    // 2. 輪播狀態
+    let images: string[] = [];
+    if (mainImg) {
+      try { images = JSON.parse(mainImg.getAttribute('data-images') || '[]'); } catch(e){}
     }
+    let currentIndex = 0;
+    const totalImages = images.length;
+
+    // 3. 核心切換功能 (無限循環)
+    const updateImage = (index: number) => {
+      if (totalImages === 0) return;
+      
+      // 無限循環邏輯
+      if (index < 0) index = totalImages - 1;
+      if (index >= totalImages) index = 0;
+      
+      currentIndex = index;
+      
+      // 更新圖片
+      if (mainImg) {
+        mainImg.style.opacity = '0.5'; // 簡單淡出效果
+        setTimeout(() => {
+            mainImg.src = images[currentIndex];
+            mainImg.style.opacity = '1';
+        }, 150);
+      }
+
+      // 更新頁碼
+      if (currentIdxEl) currentIdxEl.innerText = (currentIndex + 1).toString();
+
+      // 更新縮圖 active
+      thumbs.forEach((t, i) => {
+        if (i === currentIndex) t.classList.add('active');
+        else t.classList.remove('active');
+      });
+    };
+
+    // 4. 事件綁定
+    
+    // (A) 按鈕點擊
+    prevBtn?.addEventListener('click', () => updateImage(currentIndex - 1));
+    nextBtn?.addEventListener('click', () => updateImage(currentIndex + 1));
+    
+    // (B) 隱形區域點擊 (手機版)
+    tapPrev?.addEventListener('click', (e) => { e.preventDefault(); updateImage(currentIndex - 1); });
+    tapNext?.addEventListener('click', (e) => { e.preventDefault(); updateImage(currentIndex + 1); });
+
+    // (C) 縮圖點擊
+    thumbs.forEach((thumb) => {
+      thumb.addEventListener('click', () => {
+        const idx = parseInt(thumb.getAttribute('data-index') || '0');
+        updateImage(idx);
+      });
+    });
+
+    // (D) 手機滑動 (Swipe) 偵測
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    container?.addEventListener('touchstart', (e) => {
+      touchStartX = (e as TouchEvent).changedTouches[0].screenX;
+    }, {passive: true});
+
+    container?.addEventListener('touchend', (e) => {
+      touchEndX = (e as TouchEvent).changedTouches[0].screenX;
+      handleSwipe();
+    }, {passive: true});
+
+    const handleSwipe = () => {
+      if (totalImages <= 1) return;
+      const threshold = 50; // 滑動靈敏度
+      if (touchEndX < touchStartX - threshold) {
+        updateImage(currentIndex + 1); // 左滑 -> 下一張
+      }
+      if (touchEndX > touchStartX + threshold) {
+        updateImage(currentIndex - 1); // 右滑 -> 上一張
+      }
+    };
+
+
+    // 5. 數量控制與購物車
+    const qtyValEl = document.getElementById('qty-val');
+    const minusBtn = document.getElementById('qty-minus');
+    const plusBtn = document.getElementById('qty-plus');
+    const addCartBtn = document.getElementById('add-to-cart-btn');
+    let currentQty = 1;
+
+    const updateQtyDisplay = () => {
+      if(qtyValEl) qtyValEl.innerText = currentQty.toString();
+    };
+
+    minusBtn?.addEventListener('click', () => {
+      if (currentQty > 1) { currentQty--; updateQtyDisplay(); }
+    });
+    plusBtn?.addEventListener('click', () => {
+      currentQty++; updateQtyDisplay();
+    });
+
+    addCartBtn?.addEventListener('click', () => {
+      const safeJson = addCartBtn.getAttribute('data-safe-json');
+      if (safeJson) {
+        try {
+          const productData = JSON.parse(decodeURIComponent(safeJson));
+          
+          // 連續加入 currentQty 次 (因為 store 預設 +1)
+          for(let i=0; i<currentQty; i++) {
+             addToCart(productData);
+          }
+          
+          // 按鈕回饋
+          const originalText = addCartBtn.innerText;
+          addCartBtn.innerText = "已加入！";
+          addCartBtn.style.background = "#5D4037";
+          setTimeout(() => {
+            addCartBtn.innerText = originalText;
+            addCartBtn.style.background = "";
+          }, 1000);
+
+        } catch(e) { console.error("Cart Error:", e); }
+      }
+    });
+  });
+</script>
+
+<style>
+  .product-detail { padding-top: 60px; padding-bottom: 100px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr; gap: 40px; }
+  @media (min-width: 1024px) {
+    .detail-grid { grid-template-columns: 1fr 1fr; gap: 60px; align-items: start; }
   }
 
-  .product-image-box {
-    aspect-ratio: 1 / 1;
-    background: var(--placeholder-bg);
-    border-radius: 12px;
-    overflow: hidden;
-    border: 2px solid var(--haku-ink);
+  /* --- 輪播系統樣式 --- */
+  .gallery-section { position: relative; }
+  
+  .main-image-wrapper {
+    width: 100%; aspect-ratio: 1/1;
+    background: #DCD7CE;
+    display: flex; justify-content: center; align-items: center;
+    overflow: hidden; margin-bottom: 20px;
+    border: 1px solid rgba(62,39,35,0.1);
+    position: relative; /* 為了定位按鈕 */
+    user-select: none;
+  }
+  
+  #main-img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.15s ease; }
+
+  /* 導航按鈕 (Desktop) */
+  .nav-btn {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background: rgba(255,255,255,0.8); border: none; border-radius: 50%;
+    width: 40px; height: 40px; cursor: pointer; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: 0.3s;
+  }
+  .nav-btn:hover { background: #FFF; opacity: 1; }
+  .prev { left: 10px; }
+  .next { right: 10px; }
+  
+  /* 手機版隱形點擊區 */
+  .tap-zone {
+    position: absolute; top: 0; height: 100%; width: 20%;
+    z-index: 5; cursor: pointer;
+  }
+  .tap-zone.left { left: 0; }
+  .tap-zone.right { right: 0; }
+
+  /* 頁碼 */
+  .image-counter {
+    position: absolute; bottom: 10px; right: 10px;
+    background: rgba(0,0,0,0.6); color: #fff;
+    padding: 2px 8px; font-size: 0.8rem; border-radius: 4px;
+    font-family: 'Montserrat', sans-serif; pointer-events: none;
   }
 
-  .product-image-box img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  /* 電腦版 hover 才顯示按鈕 */
+  @media (min-width: 1024px) {
+    .main-image-wrapper:hover .nav-btn { opacity: 1; }
   }
 
-  .product-info-box {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
+  .no-image-placeholder { display: flex; flex-direction: column; align-items: center; color: rgba(62,39,35,0.3); font-weight: 700; }
+  .no-image-placeholder span { font-size: 48px; margin-bottom: 10px; }
 
-  .title {
-    font-family: 'Montserrat', sans-serif;
-    font-size: 1.8rem;
-    margin: 0;
-    font-weight: 700;
+  .thumb-list { display: flex; gap: 15px; overflow-x: auto; padding-bottom: 10px; }
+  .thumb-item {
+    width: 80px; height: 80px; flex-shrink: 0;
+    border: 1px solid transparent; cursor: pointer;
+    opacity: 0.6; transition: 0.2s;
   }
+  .thumb-item img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb-item.active { border-color: var(--haku-ink); opacity: 1; }
 
-  .price {
-    font-family: 'Montserrat', sans-serif;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--haku-ink);
-    margin: 0;
-  }
+  /* --- 資訊區 --- */
+  .badges { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+  .badge { padding: 4px 12px; font-size: 0.75rem; font-weight: 700; border: 1px solid var(--haku-ink); letter-spacing: 1px; }
+  .product-code { font-family: 'Montserrat', sans-serif; font-size: 0.8rem; letter-spacing: 1px; opacity: 0.5; }
 
-  .divider {
-    height: 2px;
-    background-color: var(--haku-ink);
-    width: 50px;
-  }
+  .product-title { font-size: 1.8rem; font-weight: 700; margin: 0 0 10px 0; line-height: 1.3; }
+  .product-price { font-family: 'Montserrat', sans-serif; font-size: 1.5rem; font-weight: 900; margin-top: 15px; }
 
-  .description {
-    line-height: 1.8;
-    color: #5D4037;
-    white-space: pre-wrap;
-  }
+  .product-desc { margin: 30px 0; padding: 30px 0; border-top: 1px solid rgba(62,39,35,0.1); border-bottom: 1px solid rgba(62,39,35,0.1); line-height: 1.8; color: #5D4037; white-space: pre-wrap; }
 
-  .buy-btn {
-    display: inline-block;
-    background: var(--haku-ink);
-    color: var(--haku-paper);
-    padding: 15px 30px;
-    text-decoration: none;
-    font-weight: 700;
-    border-radius: 4px;
-    text-align: center;
-    transition: opacity 0.2s;
-  }
-  .buy-btn:hover { opacity: 0.9; }
-  .buy-btn.disabled {
-    background: #999;
-    cursor: not-allowed;
-    pointer-events: none;
-  }
+  .action-area { margin-bottom: 30px; }
+  .qty-label { display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 10px; opacity: 0.8; }
+  .qty-control-lg { display: flex; align-items: center; border: 1px solid var(--haku-ink); width: 140px; height: 48px; }
+  .qty-btn { flex: 1; height: 100%; background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--haku-ink); display: flex; justify-content: center; align-items: center; transition: 0.2s; }
+  .qty-btn:hover { background: rgba(62,39,35,0.05); }
+  .qty-val { flex: 1; text-align: center; font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1.1rem; }
 
-  .back-link {
-    display: inline-block;
-    margin-top: 20px;
-    color: var(--haku-ink);
-    text-decoration: none;
-    font-weight: 700;
-  }
+  .btn-group { display: flex; flex-direction: column; gap: 15px; }
+  .btn-primary, .btn-outline { width: 100%; padding: 18px; font-weight: 700; letter-spacing: 2px; cursor: pointer; transition: 0.3s; text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 1rem; }
+  .btn-primary { background: var(--haku-ink); color: var(--haku-paper); border: none; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-outline { background: transparent; color: var(--haku-ink); border: 1px solid var(--haku-ink); }
+  .btn-outline:hover { background: rgba(62,39,35,0.05); }
 </style>

@@ -1,8 +1,10 @@
 import { defineConfig } from 'astro/config';
-import sitemap from '@astrojs/sitemap';
 
 export default defineConfig({
-  // 必須填寫正確的網站網址，Sitemap 才能產生正確的連結
+  // ⚠️ 1. 請填入你的 GitHub Pages 網址 (例如 https://你的帳號.github.io)
   site: 'https://haku-yakyuu.github.io',
-  integrations: [sitemap()],
+  
+  // ⚠️ 2. 如果你的儲存庫名稱不是 kae-k.github.io，而是像 "my-shop"，請填入 '/my-shop'
+  // 如果是使用者主頁 (user site)，則留空字串 ''
+  base: '',
 });
