@@ -1,9 +1,8 @@
 ---
 // 接收參數
-const { product, solidTagsList = [] } = Astro.props; // 給 solidTagsList 預設值避免錯誤
+const { product, solidTagsList = [] } = Astro.props;
 
-// --- 1. 資料防護 (關鍵修正) ---
-// 如果 product 根本沒傳進來，為了不讓頁面掛掉，我們給一個空物件
+// --- 1. 資料防護與標準化 ---
 const safeProduct = product || {};
 const name = safeProduct.name || '未命名商品';
 const price = safeProduct.price || 0;
@@ -11,44 +10,37 @@ const tags = Array.isArray(safeProduct.tags) ? safeProduct.tags : [];
 const stock = safeProduct.stock !== undefined ? safeProduct.stock : 1;
 const rawLayout = safeProduct.layout || 'vertical';
 
-// --- 2. 圖片路徑處理 (穩定版) ---
+// --- 2. 圖片路徑處理 (智慧修復版) ---
 const resolveImgPath = (src) => {
-    // 防呆：如果是空值或非字串
     if (!src || typeof src !== 'string') return '';
-
     const trimmedSrc = src.trim();
 
     // A. 外部連結直接回傳
-    if (trimmedSrc.startsWith('http') || trimmedSrc.startsWith('data:')) {
-        return trimmedSrc;
-    }
+    if (trimmedSrc.startsWith('http') || trimmedSrc.startsWith('data:')) return trimmedSrc;
 
     // B. 本地路徑處理
     let cleanPath = trimmedSrc;
-    
-    // 移除開頭的 ./
     if (cleanPath.startsWith('./')) cleanPath = cleanPath.slice(2);
-    // 移除開頭的 public/ (這是最常見的誤區)
-    if (cleanPath.startsWith('public/')) cleanPath = cleanPath.slice(7);
-    // 移除開頭的 / (為了統一格式)
+    if (cleanPath.startsWith('public/')) cleanPath = cleanPath.slice(7); // 修正常見路徑錯誤
     if (cleanPath.startsWith('/')) cleanPath = cleanPath.slice(1);
 
-    // 取得 Astro 設定的 Base URL (GitHub Pages 專用)
     const baseUrl = import.meta.env.BASE_URL;
     const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
 
-    // 組合最終路徑
     return `${cleanBase}${cleanPath}`;
 };
 
-// 處理圖片陣列
+// 處理圖片陣列 (關鍵修正：過濾髒資料)
 const rawImages = Array.isArray(safeProduct.images) ? safeProduct.images : [];
 const images = rawImages
     .filter(img => typeof img === 'string' && img.trim() !== '')
-    .map(img => resolveImgPath(img)); // 預先處理好所有路徑
+    // *** 這裡解決 404 問題：踢除誤入的排版關鍵字 ***
+    .filter(img => !['vertical', 'horizontal', 'no_image'].includes(img.trim()))
+    .map(img => resolveImgPath(img));
 
 // --- 3. 版型判斷 ---
 const isSoldOut = stock === 0;
+// 如果過濾後沒有有效圖片，自動切換為無圖模式
 const layout = (images.length === 0) ? 'no_image' : rawLayout;
 
 let cardClass = 'haku-card';
@@ -71,7 +63,7 @@ const uniqueID = `slider-${safeProduct.id || Math.random().toString(36).substr(2
     {layout !== 'no_image' && (
         <div class={layout === 'vertical' ? 'img-v' : 'img-h'}>
             
-            {/* 1. 底層預設圖示 (當圖片載入失敗或還沒載入時顯示) */}
+            {/* 1. 底層預設圖示 (Fallback) */}
             <span class="material-symbols-outlined fallback-icon">
                 {layout === 'vertical' ? 'collections' : 'image'}
             </span>
@@ -85,7 +77,7 @@ const uniqueID = `slider-${safeProduct.id || Math.random().toString(36).substr(2
                             alt={`${name} - ${index + 1}`} 
                             loading="lazy"
                             class="product-img"
-                            /* 移除 aggressive 的 onerror，改為簡單的 console 紀錄，避免隱藏區塊 */
+                            /* 圖片載入失敗時變透明，讓底下的 fallback icon 顯露出來 */
                             onerror="this.style.opacity='0';" 
                         />
                     ))}
@@ -95,10 +87,10 @@ const uniqueID = `slider-${safeProduct.id || Math.random().toString(36).substr(2
             {/* 3. Slider 控制器 */}
             {showSlider && (
                 <>
-                    <button class="slider-btn prev" aria-label="Previous image" onclick={`document.querySelector('#${uniqueID} .slider-track').scrollBy({left: -200, behavior: 'smooth'})`}>
+                    <button class="slider-btn prev" aria-label="Previous" onclick={`document.querySelector('#${uniqueID} .slider-track').scrollBy({left: -200, behavior: 'smooth'})`}>
                         <span class="material-symbols-outlined">chevron_left</span>
                     </button>
-                    <button class="slider-btn next" aria-label="Next image" onclick={`document.querySelector('#${uniqueID} .slider-track').scrollBy({left: 200, behavior: 'smooth'})`}>
+                    <button class="slider-btn next" aria-label="Next" onclick={`document.querySelector('#${uniqueID} .slider-track').scrollBy({left: 200, behavior: 'smooth'})`}>
                         <span class="material-symbols-outlined">chevron_right</span>
                     </button>
                     
@@ -145,8 +137,7 @@ const uniqueID = `slider-${safeProduct.id || Math.random().toString(36).substr(2
         display: flex; flex-direction: column; 
         position: relative; overflow: hidden; 
         transition: transform 0.2s;
-        /* 確保內容不會跑版 */
-        min-height: 200px;
+        min-height: 200px; /* 確保即使資料缺少也有基本高度 */
     }
     .haku-card:hover { transform: translateY(-4px); box-shadow: 0 10px 20px rgba(62,39,35,0.08); }
 
@@ -188,7 +179,7 @@ const uniqueID = `slider-${safeProduct.id || Math.random().toString(36).substr(2
     .product-img {
         width: 100%; height: 100%; object-fit: cover;
         flex-shrink: 0; scroll-snap-align: start;
-        background: transparent; /* 背景透明，這樣載入失敗時可以看到底下的 fallback icon */
+        background: transparent;
         position: relative; z-index: 1;
         transition: opacity 0.3s;
     }
