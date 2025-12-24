@@ -1,5 +1,8 @@
 ---
 // src/layouts/Layout.astro
+import Sidebar from '../components/Sidebar.astro';
+import CartSidebar from '../components/CartSidebar.astro';
+
 interface Props {
 	title: string;
 }
@@ -19,14 +22,20 @@ const { title } = Astro.props;
 	</head>
 	<body>
 		
+		{/* --- 1. 插入側邊欄組件 (預設隱藏，由 store 控制開啟) --- */}
+		<Sidebar />
+		<CartSidebar />
+
 		{/* --- Navigation --- */}
 		<nav>
 			<div class="nav-left">
+				{/* 這裡已經有 id="menu-trigger" */}
 				<span class="material-symbols-outlined menu-btn" id="menu-trigger">menu</span>
 			</div>
 			<a href="/" class="nav-logo">HAKU</a>
 			<div class="nav-icons">
 				<span class="material-symbols-outlined">search</span>
+				{/* 這裡已經有 id="cart-trigger" */}
 				<span class="material-symbols-outlined" id="cart-trigger">shopping_bag</span>
 			</div>
 		</nav>
@@ -57,6 +66,22 @@ const { title } = Astro.props;
 			<div class="copyright">© 2025 HAKU YAKYUU SELECT. ALL RIGHTS RESERVED.</div>
 		</footer>
 
+		{/* --- 2. 控制側邊欄開關的腳本 --- */}
+		<script>
+			import { isMenuOpen, isCartOpen } from '../store';
+
+			// 綁定左側選單按鈕
+			const menuBtn = document.getElementById('menu-trigger');
+			menuBtn?.addEventListener('click', () => {
+				isMenuOpen.set(true);
+			});
+
+			// 綁定右側購物車按鈕
+			const cartBtn = document.getElementById('cart-trigger');
+			cartBtn?.addEventListener('click', () => {
+				isCartOpen.set(true);
+			});
+		</script>
 	</body>
 </html>
 
