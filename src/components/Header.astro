@@ -1,6 +1,14 @@
 ---
-const { config } = Astro.props;
+import ConfigService from '../services/configService';
+
+const { config, products } = await ConfigService.fetchData();
 const siteName = config?.site_name || "HAKU 1984";
+
+// 自動抓取分類邏輯：
+// 1. 抓出所有產品的 category 欄位
+// 2. 過濾掉空的 category
+// 3. 使用 Set 去除重複，並轉回陣列
+const categories = [...new Set(products.map((p: any) => p.category).filter((c: any) => c))];
 ---
 
 <header class="main-header">
@@ -30,12 +38,21 @@ const siteName = config?.site_name || "HAKU 1984";
   </div>
   <nav class="sidebar-nav">
     <a href="/">首頁 HOME</a>
+    
+    {/* 唯一寫死的選項 */}
     <a href="/shop">所有商品 ALL PRODUCTS</a>
+    
     <div class="nav-divider"></div>
     <p class="nav-label">分類 CATEGORIES</p>
-    <a href="/shop?category=gloves">棒球手套</a>
-    <a href="/shop?category=bats">球棒</a>
-    <a href="/shop?category=apparel">服飾配件</a>
+
+    {/* 自動渲染抓到的分類 */}
+    {categories.length > 0 ? (
+      categories.map((cat: unknown) => (
+        <a href={`/shop?category=${cat}`}>{cat}</a>
+      ))
+    ) : (
+      <span style="opacity:0.5; font-size:0.9rem;">暫無分類</span>
+    )}
   </nav>
 </aside>
 
@@ -59,7 +76,6 @@ const siteName = config?.site_name || "HAKU 1984";
   }
   .header-left, .header-right { flex: 1; display: flex; gap: 15px; }
   .header-right { justify-content: flex-end; }
-  
   .header-center { flex: 2; text-align: center; }
   .logo-text {
     font-family: 'Montserrat', sans-serif;
@@ -69,13 +85,10 @@ const siteName = config?.site_name || "HAKU 1984";
     color: var(--haku-ink);
     letter-spacing: 2px;
   }
-
   .icon-btn {
     background: none; border: none; cursor: pointer; color: var(--haku-ink);
     display: flex; align-items: center; padding: 5px;
   }
-
-  /* 側邊欄樣式 */
   .sidebar {
     position: fixed; top: 0; left: -300px; width: 300px; height: 100%;
     background: var(--haku-paper); z-index: 200;
@@ -88,7 +101,6 @@ const siteName = config?.site_name || "HAKU 1984";
     z-index: 199; opacity: 0; pointer-events: none; transition: 0.3s;
   }
   .overlay.active { opacity: 1; pointer-events: auto; }
-
   .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
   .sidebar-logo { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.2rem; }
   .sidebar-nav { display: flex; flex-direction: column; gap: 20px; }
@@ -104,11 +116,13 @@ const siteName = config?.site_name || "HAKU 1984";
   const overlay = document.getElementById('sidebar-overlay');
 
   const toggleSidebar = () => {
-    sidebar.classList.toggle('active');
-    overlay.classList.toggle('active');
+    if (sidebar && overlay) {
+      sidebar.classList.toggle('active');
+      overlay.classList.toggle('active');
+    }
   };
 
-  btn.addEventListener('click', toggleSidebar);
-  close.addEventListener('click', toggleSidebar);
-  overlay.addEventListener('click', toggleSidebar);
+  if (btn) btn.addEventListener('click', toggleSidebar);
+  if (close) close.addEventListener('click', toggleSidebar);
+  if (overlay) overlay.addEventListener('click', toggleSidebar);
 </script>

@@ -4,31 +4,23 @@ interface Props {
 }
 const { config } = Astro.props;
 
-// --- 1. 設定內容來源 ---
 const aboutTitle = config?.about_title || "ABOUT US";
 
-// 修正：這裡直接使用反引號，不加反斜線
-const defaultText = `我們最早起步於棒球競標社團，在社群交流與販售中累積經驗，也逐步建立對商品品質與交易信任的重視。
-隨著經營方式成熟，開始進駐 Yahoo 奇摩拍賣，並同步於 蝦皮購物 進行寄賣，讓更多人能透過不同平台找到我們。
+// 這裡修改：優先讀取 Config，讀不到則強制使用指定的 Yahoo 賣場網址
+const yahooUrl = config?.yahoo_url || "https://tw.bid.yahoo.com/booth/Y1816698905";
 
-目前官方網站作為商品展示與資訊整合平台，可瀏覽我們販售過與現正提供的商品內容，但尚未開放線上直接下單功能。
-若對商品有興趣，歡迎加入 LINE 官方帳號 LINE @191wyokh 私訊洽詢，我們將協助確認庫存、報價與寄送方式。`;
+const defaultText = `我們最早起步於棒球競標社團，在社群交流與販售中累積經驗。
+目前官方網站作為商品展示與資訊整合平台，尚未開放線上直接下單功能。
+若對商品有興趣，歡迎加入 LINE 官方帳號私訊洽詢。`;
 
-// 處理換行
 const rawText = config?.about_text || defaultText;
 const aboutText = rawText.split('\n');
-
-// --- 2. 圖片與連結 ---
 const imageUrl = config?.about_image || ""; 
-const yahooUrl = config?.yahoo_url || "https://tw.bid.yahoo.com/"; 
 ---
 
 <section class="about-section">
   <div class={`container ${imageUrl ? 'has-image' : 'no-image'}`}>
-    
-    <div class="sec-header mobile-only">
-       <h2>{aboutTitle}</h2>
-    </div>
+    <div class="sec-header mobile-only"><h2>{aboutTitle}</h2></div>
 
     {imageUrl && (
       <div class="about-img">
@@ -37,16 +29,12 @@ const yahooUrl = config?.yahoo_url || "https://tw.bid.yahoo.com/";
     )}
 
     <div class="about-content">
-      <div class="sec-header desktop-only">
-         <h2>{aboutTitle}</h2>
-      </div>
-
+      <div class="sec-header desktop-only"><h2>{aboutTitle}</h2></div>
       <div class="text-body">
         {aboutText.map((paragraph: string) => (
           paragraph.trim() ? <p>{paragraph}</p> : <br/>
         ))}
       </div>
-
       <div class="btn-group">
         <a href={yahooUrl} target="_blank" class="btn-outline">
           看看我在 Yahoo 賣了什麼
@@ -56,48 +44,33 @@ const yahooUrl = config?.yahoo_url || "https://tw.bid.yahoo.com/";
         </a>
       </div>
     </div>
-
   </div>
 </section>
 
 <style>
   .about-section { padding: 80px 20px; background-color: var(--haku-paper); border-top: 1px solid rgba(62,39,35,0.1); }
   .container { max-width: 1200px; margin: 0 auto; }
-
-  /* 無圖模式 */
   .container.no-image { max-width: 800px; text-align: center; }
   .container.no-image .btn-group { justify-content: center; }
-  .container.no-image .text-body { text-align: left; display: inline-block; text-align-last: left; }
-
-  /* 有圖模式 */
   .container.has-image { display: grid; grid-template-columns: 1fr; gap: 40px; }
   @media (min-width: 1024px) {
     .container.has-image { grid-template-columns: 1fr 1fr; align-items: center; gap: 60px; }
-    .container.has-image .text-body { text-align: justify; }
   }
-
   .sec-header { border-bottom: 3px solid var(--haku-ink); margin-bottom: 30px; padding-bottom: 10px; display: inline-block; }
   .sec-header h2 { font-family: 'Montserrat', sans-serif; font-size: 1.5rem; margin: 0; letter-spacing: 2px; }
-  
   .mobile-only { display: block; text-align: center; margin-bottom: 40px; }
   .desktop-only { display: none; }
   @media (min-width: 1024px) {
     .mobile-only { display: none; }
     .desktop-only { display: block; margin-bottom: 30px; }
-    .container.no-image .desktop-only { margin-left: auto; margin-right: auto; }
   }
-
   .about-img { aspect-ratio: 1/1; background: #DCD7CE; overflow: hidden; border: 1px solid rgba(62,39,35,0.1); }
   .about-img img { width: 100%; height: 100%; object-fit: cover; }
-
   .text-body p { margin-bottom: 20px; line-height: 1.8; color: #5D4037; font-size: 1rem; letter-spacing: 0.5px; }
-
   .btn-group { margin-top: 40px; display: flex; flex-direction: column; gap: 15px; }
   @media (min-width: 768px) { .btn-group { flex-direction: row; } }
-
-  .btn-primary, .btn-outline { padding: 12px 30px; font-weight: 700; letter-spacing: 1px; cursor: pointer; transition: 0.3s; text-align: center; text-decoration: none; font-size: 0.95rem; white-space: nowrap; }
+  .btn-primary, .btn-outline { padding: 12px 30px; font-weight: 700; letter-spacing: 1px; cursor: pointer; transition: 0.3s; text-align: center; text-decoration: none; font-size: 0.95rem; }
   .btn-primary { background: var(--haku-ink); color: var(--haku-paper); border: 1px solid var(--haku-ink); }
-  .btn-primary:hover { opacity: 0.9; }
   .btn-outline { background: transparent; color: var(--haku-ink); border: 1px solid var(--haku-ink); }
   .btn-outline:hover { background: rgba(62,39,35,0.05); }
 </style>
