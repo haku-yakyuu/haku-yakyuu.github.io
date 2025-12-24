@@ -1,0 +1,108 @@
+---
+const { config } = Astro.props;
+
+// --- 設定 Hero 內容 ---
+// 優先使用試算表設定，若無則使用預設值
+const heroImage = config?.hero_image || "https://images.unsplash.com/photo-1587280501635-68a6e82cd7fd?q=80&w=2070&auto=format&fit=crop"; 
+const title = config?.hero_title || "HANDPICKED BASEBALL GEAR";
+const subtitle = config?.hero_subtitle || "連結日本職人精神，傳遞每一次投打的感動";
+const link = config?.hero_link || "/shop";
+const linkText = config?.hero_link_text || "SHOP NOW";
+---
+
+<section class="hero-section">
+  {/* 背景圖片層 */}
+  <div class="hero-bg" style={`background-image: url('${heroImage}');`}></div>
+  
+  {/* 遮罩層 (讓文字更清楚) */}
+  <div class="hero-overlay"></div>
+
+  {/* 內容層 */}
+  <div class="hero-content">
+    <h1 class="hero-title">{title}</h1>
+    <p class="hero-subtitle">{subtitle}</p>
+    <a href={link} class="hero-btn">{linkText}</a>
+  </div>
+</section>
+
+<style>
+  .hero-section {
+    position: relative;
+    width: 100%;
+    height: 85vh; /* 佔據螢幕高度的 85% */
+    min-height: 500px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin-bottom: 0;
+  }
+
+  .hero-bg {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-size: cover;
+    background-position: center;
+    z-index: 1;
+  }
+
+  /* 黑色半透明遮罩，讓白字更明顯 */
+  .hero-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(62, 39, 35, 0.4); 
+    z-index: 2;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 3;
+    text-align: center;
+    padding: 20px;
+    color: #fff;
+    max-width: 800px;
+  }
+
+  .hero-title {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 900;
+    font-size: 2.5rem;
+    letter-spacing: 3px;
+    margin: 0 0 15px 0;
+    text-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+  }
+
+  .hero-subtitle {
+    font-size: 1.1rem;
+    font-weight: 400;
+    margin-bottom: 40px;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 5px rgba(0,0,0,0.5);
+    line-height: 1.6;
+  }
+
+  .hero-btn {
+    display: inline-block;
+    padding: 15px 40px;
+    border: 2px solid #fff;
+    color: #fff;
+    text-decoration: none;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    letter-spacing: 2px;
+    transition: all 0.3s ease;
+  }
+
+  .hero-btn:hover {
+    background: #fff;
+    color: var(--haku-ink);
+  }
+
+  /* 手機版調整 */
+  @media (max-width: 768px) {
+    .hero-section { height: 70vh; }
+    .hero-title { font-size: 1.8rem; }
+    .hero-subtitle { font-size: 1rem; }
+    .hero-btn { padding: 12px 30px; font-size: 0.9rem; }
+  }
+</style>
