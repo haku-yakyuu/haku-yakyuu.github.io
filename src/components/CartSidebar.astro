@@ -52,7 +52,7 @@
   cartItems.subscribe(items => {
     if (!container || !totalEl || !titleEl) return;
     
-    // 更新標題數量
+    // 更新標題
     titleEl.textContent = `您的購物車 (${items.length})`;
 
     // 計算總額
@@ -70,8 +70,9 @@
       const el = document.createElement('div');
       el.className = 'cart-item';
       
-      // 圖片處理 (有圖顯示圖，無圖顯示 icon)
-      let thumbHtml = '<span class="material-symbols-outlined">shopping_bag</span>';
+      // --- 圖片邏輯修正 ---
+      let hasImage = false;
+      let imgContent = '<span class="material-symbols-outlined">shopping_bag</span>';
       
       const rawImages = item.layout_images || item.images || "";
       if (rawImages) {
@@ -81,14 +82,18 @@
           if (!imgSrc.startsWith('http') && !imgSrc.startsWith('/')) {
             imgSrc = '/' + imgSrc;
           }
-          thumbHtml = `<img src="${imgSrc}" alt="${item.name}">`;
+          imgContent = `<img src="${imgSrc}" alt="${item.name}">`;
+          hasImage = true;
         }
       }
 
       const formattedPrice = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(item.price);
 
+      // 動態加入 class: has-image 或 no-image
       el.innerHTML = `
-        <div class="item-thumb-box">${thumbHtml}</div>
+        <div class="item-thumb-box ${hasImage ? 'has-image' : 'no-image'}">
+          ${imgContent}
+        </div>
         <div class="item-info">
           
           <div class="info-top">
@@ -110,7 +115,7 @@
         </div>
       `;
 
-      // 綁定事件 (JS 生成的元素需要手動綁定監聽器)
+      // 綁定事件
       el.querySelector('.minus')?.addEventListener('click', () => updateQuantity(item.id, item.quantity - 1));
       el.querySelector('.plus')?.addEventListener('click', () => updateQuantity(item.id, item.quantity + 1));
       el.querySelector('.remove-box')?.addEventListener('click', () => removeFromCart(item.id));
@@ -121,8 +126,7 @@
 </script>
 
 <style is:global>
-  /* 移植自你提供的 HTML 樣式 */
-  
+  /* 全域樣式設定 */
   .overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(62, 39, 35, 0.4); z-index: 2999;
@@ -153,102 +157,67 @@
   .cart-items { flex-grow: 1; padding: 20px; overflow-y: auto; }
   .empty-msg { text-align: center; opacity: 0.5; margin-top: 50px; }
 
-  /* --- 商品項目 --- */
+  /* --- 商品卡片 --- */
   .cart-item { 
-    display: flex; 
-    align-items: center; 
-    gap: 15px; 
-    margin-bottom: 25px; 
-    padding-bottom: 20px;
+    display: flex; align-items: center; gap: 15px; 
+    margin-bottom: 25px; padding-bottom: 20px;
     border-bottom: 1px solid rgba(62,39,35,0.08);
   }
   .cart-item:last-child { border-bottom: none; }
 
-  /* 左圖區塊 */
+  /* 圖片區塊：
+     無圖時 (no-image) -> 顯示溫暖的淡色背景與 Icon
+     有圖時 (has-image) -> 背景透明，確保只顯示圖片
+  */
   .item-thumb-box {
-    width: 90px;
-    height: 90px;
-    flex-shrink: 0;
-    background-color: #DCD7CE;
+    width: 90px; height: 90px; flex-shrink: 0;
     overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    display: flex; justify-content: center; align-items: center;
+    /* 這裡只給一個預設邊框，背景色由下面的子類別決定 */
+    border: 1px solid rgba(62,39,35,0.1); 
   }
+  
+  .item-thumb-box.no-image {
+    /* 使用極淡的 Ink 色，呈現溫暖的米灰色調，而非死灰 */
+    background-color: rgba(62, 39, 35, 0.05); 
+  }
+  
+  .item-thumb-box.has-image {
+    background-color: transparent; 
+  }
+
   .item-thumb-box img { width: 100%; height: 100%; object-fit: cover; }
   .item-thumb-box .material-symbols-outlined { color: rgba(62, 39, 35, 0.3); font-size: 32px; }
 
-  /* 右文區塊 */
+  /* 文字區塊 */
   .item-info {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    height: 90px;
-    padding: 2px 0;
+    flex-grow: 1; display: flex; flex-direction: column; 
+    justify-content: space-between; height: 90px; padding: 2px 0;
   }
 
-  .info-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 10px;
-  }
+  .info-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
   .item-title { font-size: 0.95rem; font-weight: 700; line-height: 1.4; color: #3E2723; }
   .item-price { font-family: 'Montserrat', sans-serif; font-size: 1rem; font-weight: 900; white-space: nowrap; color: #3E2723; }
 
-  .info-bottom {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-  }
+  .info-bottom { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 
-  /* 數量控制器 */
-  .qty-control {
-    display: flex;
-    align-items: center;
-    border: 1px solid #3E2723;
-    height: 32px;
-  }
+  /* 控制器 & 按鈕 */
+  .qty-control { display: flex; align-items: center; border: 1px solid #3E2723; height: 32px; }
   .qty-btn {
-    width: 32px;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    user-select: none;
-    font-size: 1.2rem;
-    color: #3E2723;
-    transition: background 0.2s;
+    width: 32px; height: 100%; display: flex; justify-content: center; align-items: center;
+    cursor: pointer; user-select: none; font-size: 1.2rem; color: #3E2723; transition: background 0.2s;
   }
   .qty-btn:hover { background: rgba(62,39,35,0.05); }
   .qty-val {
-    width: 40px;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-family: 'Montserrat', sans-serif;
-    font-weight: 700;
-    font-size: 0.9rem;
-    border-left: 1px solid #3E2723;
-    border-right: 1px solid #3E2723;
-    color: #3E2723;
+    width: 40px; height: 100%; display: flex; justify-content: center; align-items: center;
+    font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.9rem;
+    border-left: 1px solid #3E2723; border-right: 1px solid #3E2723; color: #3E2723;
   }
 
-  /* 移除框框 */
   .remove-box {
-    width: 32px;
-    height: 32px;
-    border: 1px solid #3E2723;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    transition: 0.2s;
-    color: #3E2723;
+    width: 32px; height: 32px; border: 1px solid #3E2723;
+    display: flex; justify-content: center; align-items: center;
+    cursor: pointer; transition: 0.2s; color: #3E2723;
   }
   .remove-box:hover { background: #3E2723; color: #F5F1E8; }
   .remove-box .material-symbols-outlined { font-size: 18px; }
