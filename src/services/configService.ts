@@ -1,13 +1,12 @@
 // 這是連接 Google 試算表的橋樑
-// 請將下方的 URL 換成你自己的 Google Apps Script 部署網址
-const API_URL = "https://script.google.com/macros/s/AKfycby_sC_.../exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbw7jGvpY2DU5dPdSdkXMcL4Mnf0jZIcKfMYEJOkIiDIm7qoMkGid-upq1AJ3mVRP9Il/exec"; 
 
-// 預設備用資料 (當 API 連不上時顯示，避免網站掛掉)
+// 預設備用資料 (當 API 連不上時顯示)
 const defaultData = {
   config: {
-    site_name: "HAKU 1984",
+    site_name: "HAKU", 
     announcement: "網站資料連線中...",
-    hero_title: "HAKU 1984",
+    hero_title: "HAKU",
     hero_subtitle: "職人眼光的棒球選品",
     hero_image: "https://images.unsplash.com/photo-1587280501635-68a6e82cd7fd?q=80&w=2070&auto=format&fit=crop"
   },
@@ -29,7 +28,7 @@ export default {
       };
     } catch (error) {
       console.warn("API Fetch Failed, using default data:", error);
-      // 連線失敗時，回傳備用資料，讓網站至少能顯示外殼
+      // 連線失敗時，回傳備用資料
       return defaultData;
     }
   }
