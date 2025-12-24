@@ -1,110 +1,56 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import Hero from '../components/Hero.astro';
 import ProductCard from '../components/ProductCard.astro';
-import ShopSidebar from '../components/ShopSidebar.astro';
-import AboutSection from '../components/AboutSection.astro'; // 引入 About 元件
-import { fetchProducts } from '../utils/api';
+import AboutSection from '../components/AboutSection.astro';
+import ConfigService from '../services/configService';
 
-const { products, config, error } = await fetchProducts();
-const activeProducts = products.filter((p) => p.status === 'active');
-
-const categories = [...new Set(activeProducts.map(p => p.category))];
-const totalCount = activeProducts.length;
-
-const featuredProducts = activeProducts.filter((p) => 
-  p.isFeatured === true || p.isFeatured === "true"
-);
-
-const grouped = featuredProducts.reduce((acc, p) => {
-  const cat = p.category || "其他";
-  if (!acc[cat]) acc[cat] = [];
-  acc[cat].push(p);
-  return acc;
-}, {});
-const featuredCategories = Object.keys(grouped);
-
-const pageTitle = `${config?.site_title || "HAKU"} | 首頁`;
+const { products, config } = await ConfigService.fetchData();
 ---
 
-<Layout title={pageTitle}>
-  <div class="shop-wrapper">
-    
-    <ShopSidebar 
-      categories={categories} 
-      activeCategory="home" 
-      totalCount={totalCount} 
-      products={activeProducts} 
-    />
+<Layout title={config?.site_name || "HAKU 1984"} config={config}>
+  <Header config={config} />
+  
+  <main>
+    {/* Hero 是滿版的，不放在 container 內 */}
+    <Hero config={config} />
 
-    <main class="shop-content">
-      <header class="hero-section">
-        <h1 class="site-title">{config?.site_title || "HAKU"}</h1>
-        <p class="site-desc">{config?.announcement || "職人眼光的棒球選品"}</p>
-      </header>
+    {/* 商品列表需要置中 */}
+    <section class="container products-section">
+      <div class="section-header">
+        <h2>LATEST DROPS</h2>
+        <a href="/shop" class="view-all">VIEW ALL →</a>
+      </div>
+      <div class="product-grid">
+        {products.slice(0, 8).map(product => (
+          <ProductCard product={product} />
+        ))}
+      </div>
+    </section>
 
-      {error && <p class="msg">載入失敗。</p>}
+    <AboutSection config={config} />
+  </main>
 
-      {/* 精選商品區塊 */}
-      {featuredCategories.map(cat => {
-        const catProducts = grouped[cat];
-        const verticalItems = catProducts.filter(p => p.layout === 'vertical');
-        const horizontalItems = catProducts.filter(p => p.layout === 'horizontal');
-        const noImageItems = catProducts.filter(p => p.layout === 'no_image');
-
-        return (
-          <section>
-            <h3 class="cat-header">{cat} <span>FEATURED</span></h3>
-
-            {verticalItems.length > 0 && (
-              <div class="p-grid grid-vertical">
-                {verticalItems.map(p => <ProductCard product={p} config={config || {}} />)}
-              </div>
-            )}
-
-            {horizontalItems.length > 0 && (
-              <div class="p-grid grid-horizontal-img">
-                {horizontalItems.map(p => <ProductCard product={p} config={config || {}} />)}
-              </div>
-            )}
-
-            {noImageItems.length > 0 && (
-              <div class="p-grid grid-horizontal-noimg">
-                {noImageItems.map(p => <ProductCard product={p} config={config || {}} />)}
-              </div>
-            )}
-          </section>
-        )
-      })}
-
-      {/* --- 新增：關於我們區塊 (放在最下方) --- */}
-      <AboutSection config={config || {}} />
-
-    </main>
-  </div>
+  <Footer config={config} />
 </Layout>
 
 <style>
-  /* 佈局與 RWD */
-  .shop-wrapper { max-width: 1400px; margin: 0 auto; padding: 40px 20px; display: block; }
-  @media (min-width: 1024px) {
-    .shop-wrapper { display: flex; gap: 60px; padding-top: 60px; align-items: flex-start; }
-    .shop-content { flex-grow: 1; min-width: 0; }
+  .products-section { padding: 80px 20px; }
+  .section-header { 
+    display: flex; justify-content: space-between; align-items: flex-end; 
+    margin-bottom: 40px; border-bottom: 2px solid var(--haku-ink); padding-bottom: 10px;
   }
-
-  .hero-section { text-align: center; margin-bottom: 60px; padding: 40px 0; background: var(--haku-ink); color: var(--haku-paper); }
-  .site-title { font-family: 'Montserrat', sans-serif; font-size: 3rem; margin: 0; }
-  .site-desc { opacity: 0.8; margin-top: 10px; }
-
-  .cat-header { font-family: 'Montserrat', sans-serif; font-size: 1.2rem; border-bottom: 1px solid rgba(62,39,35,0.2); padding-bottom: 10px; margin: 60px 0 30px 0; }
-  .cat-header span { font-size: 0.8rem; font-weight: 400; opacity: 0.7; font-family: 'Noto Sans TC'; margin-left: 10px; }
-
-  .p-grid { display: grid; gap: 20px; margin-bottom: 50px; }
-  .grid-vertical { grid-template-columns: repeat(2, 1fr); }
-  @media (min-width: 1024px) { .grid-vertical { grid-template-columns: repeat(4, 1fr); gap: 30px; } }
-  .grid-horizontal-img { grid-template-columns: 1fr; }
-  @media (min-width: 1024px) { .grid-horizontal-img { grid-template-columns: repeat(3, 1fr); gap: 30px; } }
-  .grid-horizontal-noimg { grid-template-columns: 1fr; }
-  @media (min-width: 1024px) { .grid-horizontal-noimg { grid-template-columns: repeat(4, 1fr); gap: 20px; } }
-
-  .msg { text-align: center; padding: 40px; }
+  .section-header h2 { font-family: 'Montserrat', sans-serif; font-weight: 900; margin: 0; font-size: 1.5rem; }
+  .view-all { text-decoration: none; color: var(--haku-ink); font-weight: 700; font-size: 0.9rem; }
+  
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  @media (min-width: 1024px) {
+    .product-grid { grid-template-columns: repeat(4, 1fr); gap: 30px; }
+  }
 </style>

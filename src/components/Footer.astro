@@ -1,0 +1,55 @@
+---
+const { config } = Astro.props;
+const siteName = config?.site_name || "HAKU 1984";
+const year = new Date().getFullYear();
+
+// 備用資訊
+const footerInfo = config?.footer_info || "職人眼光的棒球選品・日本代購服務";
+const contactInfo = config?.contact_info || "LINE: @191wyokh";
+---
+
+<footer class="main-footer">
+  <div class="container footer-content">
+    <div class="footer-brand">
+      <a href="/" class="footer-logo">{siteName}</a>
+      <p>{footerInfo}</p>
+    </div>
+    
+    <div class="footer-links">
+      <p class="footer-label">聯絡我們</p>
+      <p>{contactInfo}</p>
+      <div class="social-icons">
+        {/* 未來可根據試算表新增連結 */}
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>&copy; {year} {siteName}. All Rights Reserved. </p>
+  </div>
+</footer>
+
+<style>
+  .main-footer { background: #E8E2D6; padding: 60px 0 20px; margin-top: 80px; }
+  .footer-content { display: grid; grid-template-columns: 1fr; gap: 40px; text-align: center; }
+  
+  @media (min-width: 768px) {
+    .footer-content { grid-template-columns: 1fr 1fr; text-align: left; }
+  }
+
+  .footer-logo {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 900;
+    font-size: 1.8rem;
+    text-decoration: none;
+    color: var(--haku-ink);
+    display: inline-block;
+    margin-bottom: 15px;
+  }
+  .footer-brand p { font-size: 0.9rem; opacity: 0.8; margin: 0; }
+  .footer-label { font-size: 0.8rem; font-weight: 700; opacity: 0.5; text-transform: uppercase; margin-bottom: 10px; }
+  
+  .footer-bottom { 
+    border-top: 1px solid rgba(62,39,35,0.05); 
+    margin-top: 50px; padding-top: 20px; text-align: center; font-size: 0.8rem; opacity: 0.5;
+  }
+</style>

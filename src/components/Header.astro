@@ -1,0 +1,114 @@
+---
+const { config } = Astro.props;
+const siteName = config?.site_name || "HAKU 1984";
+---
+
+<header class="main-header">
+  <div class="header-inner">
+    <div class="header-left">
+      <button id="menu-toggle" class="icon-btn" aria-label="Menu">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+    </div>
+
+    <div class="header-center">
+      <a href="/" class="logo-text">{siteName}</a>
+    </div>
+
+    <div class="header-right">
+      <button class="icon-btn"><span class="material-symbols-outlined">search</span></button>
+      <a href="/shop" class="icon-btn"><span class="material-symbols-outlined">shopping_bag</span></a>
+    </div>
+  </div>
+</header>
+
+<div id="sidebar-overlay" class="overlay"></div>
+<aside id="sidebar" class="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-logo">{siteName}</span>
+    <button id="menu-close" class="icon-btn"><span class="material-symbols-outlined">close</span></button>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="/">首頁 HOME</a>
+    <a href="/shop">所有商品 ALL PRODUCTS</a>
+    <div class="nav-divider"></div>
+    <p class="nav-label">分類 CATEGORIES</p>
+    <a href="/shop?category=gloves">棒球手套</a>
+    <a href="/shop?category=bats">球棒</a>
+    <a href="/shop?category=apparel">服飾配件</a>
+  </nav>
+</aside>
+
+<style>
+  .main-header {
+    height: 70px;
+    background: var(--haku-paper);
+    border-bottom: 1px solid rgba(62,39,35,0.1);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-inner {
+    max-width: 1400px;
+    height: 100%;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header-left, .header-right { flex: 1; display: flex; gap: 15px; }
+  .header-right { justify-content: flex-end; }
+  
+  .header-center { flex: 2; text-align: center; }
+  .logo-text {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 900;
+    font-size: 1.5rem;
+    text-decoration: none;
+    color: var(--haku-ink);
+    letter-spacing: 2px;
+  }
+
+  .icon-btn {
+    background: none; border: none; cursor: pointer; color: var(--haku-ink);
+    display: flex; align-items: center; padding: 5px;
+  }
+
+  /* 側邊欄樣式 */
+  .sidebar {
+    position: fixed; top: 0; left: -300px; width: 300px; height: 100%;
+    background: var(--haku-paper); z-index: 200;
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 30px; box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+  }
+  .sidebar.active { left: 0; }
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 199; opacity: 0; pointer-events: none; transition: 0.3s;
+  }
+  .overlay.active { opacity: 1; pointer-events: auto; }
+
+  .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+  .sidebar-logo { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.2rem; }
+  .sidebar-nav { display: flex; flex-direction: column; gap: 20px; }
+  .sidebar-nav a { text-decoration: none; color: var(--haku-ink); font-weight: 700; font-size: 1.1rem; }
+  .nav-divider { height: 1px; background: rgba(62,39,35,0.1); margin: 10px 0; }
+  .nav-label { font-size: 0.8rem; opacity: 0.5; margin: 0; letter-spacing: 1px; }
+</style>
+
+<script>
+  const btn = document.getElementById('menu-toggle');
+  const close = document.getElementById('menu-close');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+
+  const toggleSidebar = () => {
+    sidebar.classList.toggle('active');
+    overlay.classList.toggle('active');
+  };
+
+  btn.addEventListener('click', toggleSidebar);
+  close.addEventListener('click', toggleSidebar);
+  overlay.addEventListener('click', toggleSidebar);
+</script>

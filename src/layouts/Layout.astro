@@ -2,57 +2,31 @@
 interface Props {
 	title: string;
 	config?: any;
-	image?: string; // 新增：接收該頁面傳入的特定圖片
+	image?: string;
 }
 
 const { title, config, image } = Astro.props;
-
-// --- 1. 設定預設圖 (請確保你有把 default-og.jpg 放在 public 資料夾) ---
-// Astro.url.origin 會自動抓取你網站目前的網域 (例如 https://haku-yakyuu.github.io)
-const defaultOGImage = new URL("/default-og.jpg", Astro.url.origin).toString();
-
-// --- 2. 決定最終要用哪張圖 ---
-// 如果該頁面有傳入 image 就用它，否則就用預設圖
-const socialImage = image || defaultOGImage;
-
-// --- 3. 驗證碼與描述邏輯 (維持不變) ---
 const DEFAULT_VERIFICATION = "RSCsK8X-OoCTr2uKZ2oKz-QbY1SjZWYLZRIfQz9NKWY";
 const googleVerification = config?.google_verification || DEFAULT_VERIFICATION;
 const siteDescription = config?.announcement || "HAKU 職人眼光的棒球選品";
+const socialImage = image || new URL("/default-og.jpg", Astro.url.origin).toString();
 ---
 
 <!doctype html>
 <html lang="zh-Hant">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="generator" content={Astro.generator} />
-		
 		<title>{title}</title>
 		<meta name="description" content={siteDescription} />
-
-		{/* --- Open Graph / Facebook 設定 --- */}
-		<meta property="og:type" content="website" />
-		<meta property="og:url" content={Astro.url} />
-		<meta property="og:title" content={title} />
-		<meta property="og:description" content={siteDescription} />
 		<meta property="og:image" content={socialImage} />
-
-		{/* --- Twitter 設定 (許多平台也會參考這個) --- */}
-		<meta name="twitter:card" content="summary_large_image" />
-		<meta name="twitter:title" content={title} />
-		<meta name="twitter:description" content={siteDescription} />
-		<meta name="twitter:image" content={socialImage} />
-		
-		{/* 搜尋引擎驗證 */}
 		<meta name="google-site-verification" content={googleVerification} />
 		
-		{/* Google Fonts & Icons */}
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
-		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+		<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
 	</head>
 	<body>
 		<slot />
@@ -61,14 +35,21 @@ const siteDescription = config?.announcement || "HAKU 職人眼光的棒球選�
 				--haku-ink: #3E2723;
 				--haku-paper: #F5F1E8;
 				--haku-accent: #DCD7CE;
-				--placeholder-bg: #E0E0E0;
 			}
-			html {
-				font-family: 'Noto Sans TC', sans-serif;
+			* { box-sizing: border-box; }
+			html, body { 
+				margin: 0; padding: 0; 
+				overflow-x: hidden; /* 防止版面溢出 */
 				background: var(--haku-paper);
 				color: var(--haku-ink);
+				font-family: 'Noto Sans TC', sans-serif;
 			}
-			body { margin: 0; padding: 0; }
+			img { max-width: 100%; height: auto; display: block; }
+			.container { 
+				max-width: 1200px; 
+				margin: 0 auto; 
+				padding: 0 20px; 
+			}
 		</style>
 	</body>
 </html>
