@@ -1,41 +1,32 @@
 ---
-// src/pages/category/[slug].astro
 import Layout from '../../layouts/Layout.astro';
 import ProductCard from '../../components/ProductCard.astro';
-
-// 修正重點 1: 這裡要改成 fetchProducts
 import { fetchProducts } from '../../utils/api';
 
-// 1. 生成靜態路徑 (Static Paths)
-// Astro 需要知道總共有哪些「分類」頁面需要生成 (例如 /category/紀念球, /category/配件)
 export async function getStaticPaths() {
-  // 修正重點 2: 使用 fetchProducts()
   const { products } = await fetchProducts();
+  const categories = [...new Set(products.map((p) => p.category).filter(Boolean))];
   
-  // 抓出所有不重複的 category
-  const categories = [...new Set(products.map((p: any) => p.category))];
-  
-  // 回傳路徑參數
   return categories.map((cat) => ({
     params: { slug: cat },
     props: { categoryName: cat },
   }));
 }
 
-// 2. 頁面邏輯
 const { categoryName } = Astro.props;
-// 修正重點 3: 使用 fetchProducts() 抓取資料
 const { products, config } = await fetchProducts();
 
-// 篩選出該分類的商品
-const categoryProducts = products.filter((p: any) => p.category === categoryName);
+// 篩選該分類商品
+const categoryProducts = products.filter((p) => p.category === categoryName);
+
+// 確保標題變數存在 (修正錯誤的關鍵)
+const pageTitle = `${categoryName} | ${config.site_title || 'HAKU'}`;
 ---
 
-<Layout title={`${categoryName} | HAKU 選品`}>
+<Layout title={pageTitle}>
   <main class="container" style="padding-top: 60px;">
     
     <div class="sec-header">
-       {/* 顯示分類標題 */}
        <h2>{categoryName}</h2>
     </div>
 
@@ -43,7 +34,7 @@ const categoryProducts = products.filter((p: any) => p.category === categoryName
       <p style="text-align:center; padding:50px;">此分類目前沒有商品。</p>
     ) : (
       <div class="grid-v">
-        {categoryProducts.map((p: any) => (
+        {categoryProducts.map((p) => (
           <ProductCard product={p} config={config} />
         ))}
       </div>
@@ -53,7 +44,6 @@ const categoryProducts = products.filter((p: any) => p.category === categoryName
 </Layout>
 
 <style>
-  /* 沿用全站樣式 */
   .container { max-width: 1400px; margin: 0 auto; padding: 0 5%; }
   .grid-v { display: grid; gap: 20px; grid-template-columns: repeat(2, 1fr); }
   @media (min-width: 1024px) { .grid-v { grid-template-columns: repeat(4, 1fr); gap: 30px; } }
