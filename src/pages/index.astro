@@ -3,14 +3,15 @@ import Layout from '../layouts/Layout.astro';
 import ProductCard from '../components/ProductCard.astro';
 import { fetchProducts } from '../utils/api';
 
+// 這裡會抓到 GAS 回傳的 config
 const { products, config, error } = await fetchProducts();
 
-// 篩選精選商品
+// 篩選 active 且 isFeatured
 const featuredProducts = products.filter((p) => 
   p.status === 'active' && (p.isFeatured === true || p.isFeatured === "true")
 );
 
-// 分組
+// 分組邏輯
 const grouped = featuredProducts.reduce((acc, p) => {
   const cat = p.category || "其他";
   if (!acc[cat]) acc[cat] = [];
@@ -18,13 +19,18 @@ const grouped = featuredProducts.reduce((acc, p) => {
   return acc;
 }, {});
 const categories = Object.keys(grouped);
+
+// --- 關鍵修正 ---
+// 你的 GAS 裡叫做 site_title，所以這裡我們要用 config.site_title
+// 如果讀不到，就預設顯示 "HAKU"
+const pageTitle = `${config?.site_title || "HAKU"} | 首頁`;
 ---
 
-<Layout title="HAKU YAKYUU | 首頁">
+<Layout title={pageTitle}>
   
   <header style="text-align:center; padding: 60px 20px; background:#3E2723; color:#F5F1E8;">
-    <h1 style="margin:0; font-size: 3rem;">HAKU</h1>
-    <p style="opacity:0.8;">職人眼光的棒球選品</p>
+    <h1 style="margin:0; font-size: 3rem;">{config?.site_title || "HAKU"}</h1>
+    <p style="opacity:0.8;">{config?.announcement || "職人眼光的棒球選品"}</p>
   </header>
 
   <main class="container">
