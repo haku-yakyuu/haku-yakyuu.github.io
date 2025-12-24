@@ -1,0 +1,82 @@
+---
+interface Props {
+  categories: string[];
+  activeCategory: string; // 用來判斷哪個按鈕要亮起
+  totalCount: number;
+  products: any[]; // 用來計算個別分類數量
+}
+
+const { categories, activeCategory, totalCount, products } = Astro.props;
+---
+
+<aside class="shop-sidebar">
+  <div class="filter-group">
+    <h3>商品分類</h3>
+    <ul>
+      {/* 1. 所有商品連結 */}
+      <li>
+        <a href="/shop" class={`filter-link ${activeCategory === 'all' ? 'active' : ''}`}>
+          所有商品 <span class="count">({totalCount})</span>
+        </a>
+      </li>
+      
+      {/* 2. 動態分類連結 */}
+      {categories.map(cat => {
+        // 計算該分類數量
+        const count = products.filter((p:any) => p.category === cat).length;
+        return (
+          <li>
+            <a href={`/category/${cat}`} class={`filter-link ${activeCategory === cat ? 'active' : ''}`}>
+              {cat} <span class="count">({count})</span>
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  </div>
+</aside>
+
+<style>
+  /* 電腦版側邊欄樣式 */
+  .shop-sidebar {
+    display: none; /* 手機版預設隱藏 (或是另外做手機版選單) */
+  }
+
+  @media (min-width: 1024px) {
+    .shop-sidebar {
+      display: block;
+      width: 220px;
+      flex-shrink: 0;
+      /* --- 關鍵 Sticky 設定 --- */
+      position: sticky;
+      top: 100px; /* 距離頂部 100px 時停住 */
+      height: fit-content; /* 確保高度正確，sticky 才會生效 */
+      z-index: 10;
+    }
+  }
+
+  .filter-group h3 {
+    font-family: 'Montserrat', sans-serif; font-size: 1.1rem; 
+    border-bottom: 2px solid var(--haku-ink); padding-bottom: 10px; margin-bottom: 20px;
+  }
+  
+  .filter-group ul { list-style: none; padding: 0; margin: 0; }
+  .filter-group li { margin-bottom: 12px; }
+  
+  .filter-link {
+    text-decoration: none;
+    font-family: 'Noto Sans TC', sans-serif; font-size: 0.95rem;
+    color: var(--haku-ink); opacity: 0.6; transition: 0.3s;
+    display: flex; justify-content: space-between; width: 100%;
+    cursor: pointer;
+  }
+  
+  .filter-link:hover { opacity: 1; }
+  
+  .filter-link.active { 
+    opacity: 1; font-weight: 700; 
+    padding-left: 10px; border-left: 3px solid var(--haku-ink); 
+  }
+  
+  .count { font-size: 0.8rem; opacity: 0.5; font-weight: 400; }
+</style>

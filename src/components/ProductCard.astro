@@ -5,25 +5,38 @@ interface Props {
 }
 const { product, config } = Astro.props;
 
-// 解析資料
-const imagesArr = product.layout_images ? product.layout_images.split(',').map((u:string)=>u.trim()).filter((u:string)=>u!=="") : [];
-// 如果資料庫欄位不一樣，請將上面的 product.layout_images 改成 product.layout (如果是存圖片網址)
-// 根據你提供的 HTML，圖片網址似乎是在 product.images (或 layout_images)，而樣式是 product.layout
+// --- 1. 圖片路徑處理邏輯 (Robust Image Handling) ---
+// 來源可能是 "img1.jpg, img2.jpg" 或 "https://site.com/img.jpg"
+const rawImages = product.layout_images || product.images || ""; // 支援兩種欄位名
 
-// 確保 layout 變數存在
+const imagesArr = rawImages.split(',')
+  .map((url: string) => {
+    let cleanUrl = url.trim();
+    if (!cleanUrl) return null;
+    
+    // 如果是外部連結 (http/https) 直接回傳
+    if (cleanUrl.startsWith('http')) return cleanUrl;
+    
+    // 如果是本地路徑但沒有斜線開頭 (例如 "images/ball.jpg")，補上 "/"
+    // 這樣 Astro 才會去 public 資料夾找
+    if (!cleanUrl.startsWith('/')) return '/' + cleanUrl;
+    
+    return cleanUrl;
+  })
+  .filter((url: string | null) => url !== null);
+
+// --- 2. 其他資料處理 ---
 const layoutType = product.layout || 'vertical'; 
 const solidTagsArr = config.solid_tags ? config.solid_tags.split(',').map((t:string) => t.trim()) : [];
 const tagsArr = product.tags ? product.tags.split(',').map((t:string) => t.trim()) : [];
 const formattedPrice = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(product.price);
-
-// 購物車資料
 const cartProductData = JSON.stringify(product);
 ---
 
 <div class={`haku-card ${layoutType === 'horizontal' ? 'horizontal' : ''} ${layoutType === 'no_image' ? 'no-image' : ''}`} data-json={cartProductData}>
   
-  {/* 圖片區域 (垂直與橫式才有) */}
-  {layoutType !== 'no_image' && (
+  {/* 圖片區域 */}
+  {layoutType !== 'no_image' && imagesArr.length > 0 && (
     <div class={`img-box ${layoutType === 'vertical' ? 'img-v' : 'img-h'} ${imagesArr.length > 1 ? 'js-carousel' : ''}`}>
       {imagesArr.length > 1 ? (
         <div class="carousel-wrap">
@@ -37,7 +50,7 @@ const cartProductData = JSON.stringify(product);
           </div>
         </div>
       ) : (
-        <img src={imagesArr[0] || ''} alt={product.name} loading="lazy" />
+        <img src={imagesArr[0]} alt={product.name} loading="lazy" />
       )}
     </div>
   )}
@@ -59,19 +72,15 @@ const cartProductData = JSON.stringify(product);
 </div>
 
 <style>
-  /* --- 移植你的原始 CSS --- */
+  /* CSS 保持原本 V8 的設定，確保樣式一致 */
   .haku-card { background-color: var(--haku-paper); border: 1px solid rgba(62, 39, 35, 0.1); display: flex; flex-direction: column; position: relative; overflow: hidden; text-decoration: none; color: inherit; transition: transform 0.3s ease; height: 100%; }
   .haku-card:hover { transform: translateY(-5px); }
   
   .card-body { padding: 18px; flex-grow: 1; display: flex; flex-direction: column; position: relative; align-items: flex-start; width: 100%; box-sizing: border-box; }
-  
   .p-name { font-size: 1rem; font-weight: 700; margin: 0 0 12px 0; padding-right: 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; width: 100%; box-sizing: border-box; }
-  
   .p-price { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.1rem; margin-top: auto; width: 100%; box-sizing: border-box; }
-  
   .cart-icon { position: absolute; bottom: 18px; right: 18px; opacity: 0.8; cursor: pointer; z-index: 10; }
 
-  /* 手機版 RWD */
   @media (max-width: 1023px) {
     .p-name { font-size: 0.9rem; margin-bottom: 8px; }
     .p-price { font-size: 1rem; }
@@ -79,17 +88,14 @@ const cartProductData = JSON.stringify(product);
     .card-body { padding: 15px; }
   }
 
-  /* 標籤 */
   .tag-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; width: 100%; box-sizing: border-box; }
   .tag { font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border: 1px solid var(--haku-ink); border-radius: 2px; text-transform: uppercase; }
   .tag-hollow { color: var(--haku-ink); background: transparent; }
   .tag-solid { color: var(--haku-paper); background: var(--haku-ink); }
 
-  /* 圖片與輪播 */
   .img-box { background: var(--placeholder-bg); overflow: hidden; position: relative; }
   .img-v { aspect-ratio: 1/1; width: 100%; }
   .img-h { width: 110px; height: 100%; flex-shrink: 0; }
-  
   .img-box img { width: 100%; height: 100%; object-fit: cover; }
 
   .carousel-wrap { width: 100%; height: 100%; position: relative; }
@@ -98,15 +104,13 @@ const cartProductData = JSON.stringify(product);
   .carousel-track img { flex: 0 0 100%; scroll-snap-align: start; }
   
   .carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 5; opacity: 0; transition: 0.3s; }
-  .btn-prev { left: 10px; } 
-  .btn-next { right: 10px; }
+  .btn-prev { left: 10px; } .btn-next { right: 10px; }
   @media (min-width: 1024px) { .haku-card:hover .carousel-btn { opacity: 1; } }
   
   .carousel-dots { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; z-index: 5; }
   .dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.4); }
   .dot.active { background: #FFF; width: 12px; border-radius: 3px; }
 
-  /* 橫式與無圖 */
   .haku-card.horizontal { flex-direction: row; min-height: 130px; }
   .no-image { border-top: 5px solid var(--haku-ink); }
 </style>
@@ -115,16 +119,14 @@ const cartProductData = JSON.stringify(product);
   import { addToCart } from '../store';
 
   function initInteractive() {
-    // 輪播邏輯
+    // 輪播
     document.querySelectorAll('.js-carousel').forEach(carousel => {
       if (carousel.hasAttribute('data-init')) return;
       carousel.setAttribute('data-init', 'true');
-
       const track = carousel.querySelector('.carousel-track') as HTMLElement;
       const nextBtn = carousel.querySelector('.btn-next');
       const prevBtn = carousel.querySelector('.btn-prev');
       const dots = carousel.querySelectorAll('.dot');
-      
       if(!track || !nextBtn || !prevBtn) return;
       const total = track.querySelectorAll('img').length;
       
@@ -132,38 +134,23 @@ const cartProductData = JSON.stringify(product);
         const index = Math.round(track.scrollLeft / track.offsetWidth);
         dots.forEach((d, i) => d.classList.toggle('active', i === index));
       };
-
-      nextBtn.addEventListener('click', (e) => { 
-        e.preventDefault(); e.stopPropagation();
-        const cur = Math.round(track.scrollLeft / track.offsetWidth); 
-        track.scrollTo({ left: cur >= total - 1 ? 0 : track.scrollLeft + track.offsetWidth, behavior: 'smooth' }); 
-      });
-
-      prevBtn.addEventListener('click', (e) => { 
-        e.preventDefault(); e.stopPropagation();
-        const cur = Math.round(track.scrollLeft / track.offsetWidth); 
-        track.scrollTo({ left: cur <= 0 ? track.offsetWidth * (total - 1) : track.scrollLeft - track.offsetWidth, behavior: 'smooth' }); 
-      });
-
+      nextBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const cur = Math.round(track.scrollLeft / track.offsetWidth); track.scrollTo({ left: cur >= total - 1 ? 0 : track.scrollLeft + track.offsetWidth, behavior: 'smooth' }); });
+      prevBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const cur = Math.round(track.scrollLeft / track.offsetWidth); track.scrollTo({ left: cur <= 0 ? track.offsetWidth * (total - 1) : track.scrollLeft - track.offsetWidth, behavior: 'smooth' }); });
       track.addEventListener('scroll', updateUI);
     });
 
-    // 購物車按鈕邏輯
+    // 購物車
     document.querySelectorAll('.cart-icon').forEach(btn => {
       const card = btn.closest('.haku-card');
       if (!card || btn.hasAttribute('data-init')) return;
       btn.setAttribute('data-init', 'true');
-
       btn.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
         const jsonStr = card.getAttribute('data-json');
-        if (jsonStr) {
-          try { addToCart(JSON.parse(jsonStr)); } catch(e){}
-        }
+        if (jsonStr) { try { addToCart(JSON.parse(jsonStr)); } catch(e){} }
       });
     });
   }
-
   document.addEventListener('astro:page-load', initInteractive);
   initInteractive();
 </script>
