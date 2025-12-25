@@ -19,15 +19,8 @@ const { config } = await fetchProducts();
 
 // --- 圖片資料處理 ---
 const rawImages = product.layout_images || product.images || "";
-const imagesArr = rawImages.split(',')
-  .map((url: string) => {
-    let cleanUrl = url.trim();
-    if (!cleanUrl) return null;
-    if (cleanUrl.startsWith('http')) return cleanUrl;
-    if (!cleanUrl.startsWith('/')) return '/' + cleanUrl;
-    return cleanUrl;
-  })
-  .filter(Boolean);
+const imagesCount = rawImages ? rawImages.split(",").length : 0;
+const imagesArr = Array.from({ length: imagesCount }, (_, i) => `/products/${product.id}-${i}.jpg`);
 
 const hasImages = imagesArr.length > 0;
 const priceStr = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(product.price);

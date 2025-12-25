@@ -5,17 +5,9 @@ interface Props {
 }
 const { product, config } = Astro.props;
 
-// 圖片處理邏輯
-const rawImages = product.layout_images || product.images || ""; 
-const imagesArr = rawImages.split(',')
-  .map((url: string) => {
-    let cleanUrl = url.trim();
-    if (!cleanUrl) return null;
-    if (cleanUrl.startsWith('http')) return cleanUrl;
-    if (!cleanUrl.startsWith('/')) return '/' + cleanUrl;
-    return cleanUrl;
-  })
-  .filter((url: string | null) => url !== null);
+const rawImages = product.layout_images || product.images || "";
+const imagesCount = rawImages ? rawImages.split(",").length : 0;
+const imagesArr = Array.from({ length: imagesCount }, (_, i) => `/products/${product.id}-${i}.jpg`);
 
 const layoutType = product.layout || 'vertical'; 
 const solidTagsArr = config.solid_tags ? config.solid_tags.split(',').map((t:string) => t.trim()) : [];

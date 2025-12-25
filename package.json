@@ -5,14 +5,16 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "astro build",
+    "build": "node scripts/sync-images.mjs && astro build",
     "preview": "astro preview",
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/check": "^0.9.6",
     "@astrojs/sitemap": "^3.6.0",
     "@nanostores/persistent": "^1.2.0",
     "astro": "^5.0.0",
-    "nanostores": "^1.1.0"
+    "nanostores": "^1.1.0",
+    "typescript": "^5.9.3"
   }
 }
