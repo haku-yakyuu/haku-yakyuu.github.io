@@ -134,9 +134,9 @@ const safeJson = encodeURIComponent(JSON.stringify(productData));
 </Layout>
 
 <script>
-  import { addToCart } from '../../store';
+  import { addToCart, isCartOpen } from '../../store';
 
-  document.addEventListener('astro:page-load', () => {
+  function initPage() {
     // 1. 元素選取
     const mainImg = document.getElementById('main-img') as HTMLImageElement;
     const thumbs = document.querySelectorAll('.thumb-item');
@@ -245,7 +245,10 @@ const safeJson = encodeURIComponent(JSON.stringify(productData));
       currentQty++; updateQtyDisplay();
     });
 
-    addCartBtn?.addEventListener('click', () => {
+    if (addCartBtn?.hasAttribute("data-init")) return;
+    addCartBtn?.setAttribute("data-init", "true");
+    addCartBtn?.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
       const safeJson = addCartBtn.getAttribute('data-safe-json');
       if (safeJson) {
         try {
@@ -255,6 +258,7 @@ const safeJson = encodeURIComponent(JSON.stringify(productData));
           for(let i=0; i<currentQty; i++) {
              addToCart(productData);
           }
+          isCartOpen.set(true);
           
           // 按鈕回饋
           const originalText = addCartBtn.innerText;
@@ -268,7 +272,9 @@ const safeJson = encodeURIComponent(JSON.stringify(productData));
         } catch(e) { console.error("Cart Error:", e); }
       }
     });
-  });
+  }
+  document.addEventListener('astro:page-load', initPage);
+  initPage();
 </script>
 
 <style>
