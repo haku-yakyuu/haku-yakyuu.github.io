@@ -9,7 +9,7 @@ export async function fetchProducts() {
     const data = await response.json();
     return {
       products: data.products || [],
-      config: data.config || { solid_tags: "" }
+      config: data.config || { solid_tags: "" }, pages: data.pages || []
     };
   } catch (error) {
     console.error("Fetch API Error:", error);

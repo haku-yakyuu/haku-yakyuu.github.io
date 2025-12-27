@@ -1,0 +1,36 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { fetchProducts } from '../../utils/api';
+
+export async function getStaticPaths() {
+  const { pages } = await fetchProducts();
+  return pages.map((page) => ({
+    params: { slug: page.slug },
+    props: { page },
+  }));
+}
+
+const { page } = Astro.props;
+---
+
+<Layout title={page.title}>
+  <main class="container info-page">
+    <header class="info-header">
+      <h1>{page.title}</h1>
+    </header>
+    <article class="info-content">
+      {/* 處理換行符號並顯示內容 */}
+      {page.content.split('\n').map((line) => (
+        <p>{line}</p>
+      ))}
+    </article>
+  </main>
+</Layout>
+
+<style>
+  .info-page { padding: 80px 5%; max-width: 800px; margin: 0 auto; }
+  .info-header { border-bottom: 1px solid var(--haku-ink); margin-bottom: 40px; padding-bottom: 20px; }
+  .info-header h1 { font-size: 2rem; font-weight: 700; }
+  .info-content { line-height: 2; color: #5D4037; }
+  .info-content p { margin-bottom: 1.5em; }
+</style>
