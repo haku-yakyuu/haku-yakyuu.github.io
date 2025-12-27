@@ -23,7 +23,7 @@ const imagesCount = rawImages ? rawImages.split(",").length : 0;
 const imagesArr = Array.from({ length: imagesCount }, (_, i) => `/products/${product.id}-${i}.jpg`);
 
 const hasImages = imagesArr.length > 0;
-const priceStr = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(product.price);
+const priceStr = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: config.site_currency || 'TWD', maximumFractionDigits: 0 }).format(product.price);
 const pageTitle = `${product.name} | ${config?.site_title || 'HAKU'}`;
 
 // --- 購物車資料 (使用 encodeURIComponent 避免引號問題) ---
@@ -34,9 +34,29 @@ const productData = {
   layout: hasImages ? imagesArr[0] : 'no_image' 
 };
 const safeJson = encodeURIComponent(JSON.stringify(productData));
+
+// --- Google Search 結構化資料 (Schema.org) --- 
+const currencyCode = config.site_currency || 'TWD'; 
+const fullUrl = `https://haku-yakyuu.github.io/product/${product.id}`; 
+const schemaData = JSON.stringify({ 
+  "@context": "https://schema.org/", 
+  "@type": "Product", 
+  "name": product.name, 
+  "image": imagesArr.map(img => `https://haku-yakyuu.github.io${img}`), 
+  "description": product.desc || '', 
+  "sku": product.id, 
+  "offers": { 
+    "@type": "Offer", 
+    "url": fullUrl, 
+    "priceCurrency": currencyCode, 
+    "price": product.price, 
+    "availability": "https://schema.org/InStock" 
+  } 
+});
 ---
 
 <Layout title={pageTitle}>
+  <script type="application/ld+json" set:html={schemaData} />
   <main class="container product-detail">
     
     <div class="detail-grid">
@@ -243,6 +263,25 @@ const safeJson = encodeURIComponent(JSON.stringify(productData));
     addCartBtn?.addEventListener('click', (e) => {
       e.preventDefault(); e.stopPropagation();
       const safeJson = addCartBtn.getAttribute('data-safe-json');
+
+// --- Google Search 結構化資料 (Schema.org) --- 
+const currencyCode = config.site_currency || 'TWD'; 
+const fullUrl = `https://haku-yakyuu.github.io/product/${product.id}`; 
+const schemaData = JSON.stringify({ 
+  "@context": "https://schema.org/", 
+  "@type": "Product", 
+  "name": product.name, 
+  "image": imagesArr.map(img => `https://haku-yakyuu.github.io${img}`), 
+  "description": product.desc || '', 
+  "sku": product.id, 
+  "offers": { 
+    "@type": "Offer", 
+    "url": fullUrl, 
+    "priceCurrency": currencyCode, 
+    "price": product.price, 
+    "availability": "https://schema.org/InStock" 
+  } 
+});
       if (safeJson) {
         try {
           const productData = JSON.parse(decodeURIComponent(safeJson));
