@@ -135,7 +135,7 @@ const schemaData = JSON.stringify({
           <button id="add-to-cart-btn" class="btn-primary" data-safe-json={safeJson}>
             加入購物車
           </button>
-          <a href="/contact-success" target="_blank" class="btn-outline">
+          <a href={`/contact-success?id=${product.id}`} target="_blank" class="btn-outline">
             <span class="material-symbols-outlined">chat</span>
             透過 LINE 查詢
           </a>

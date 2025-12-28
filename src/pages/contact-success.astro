@@ -2,49 +2,136 @@
 import Layout from '../layouts/Layout.astro';
 import { fetchProducts } from '../utils/api';
 
-const { config } = await fetchProducts();
+const { products, config } = await fetchProducts();
 const siteTitle = config?.site_title || "HAKU";
 const adsId = config?.google_ads_id;
 const adsLabel = config?.google_ads_label;
+
+// 將商品簡化資料，以便前端透過 ID 比對
+const simpleProducts = products.map(p => ({ id: p.id, name: p.name, price: p.price }));
 ---
 
-<Layout title={siteTitle} googleAdsId={adsId}>
+<Layout title={`詢問清單確認 | ${siteTitle}`} googleAdsId={adsId}>
   <main class="container redirect-page">
     <div class="message-box">
-      <div class="icon-spin material-symbols-outlined">sync</div>
       <h1 class="brand-title">{siteTitle}</h1>
-      <p class="status-text">正在為您連接專屬客服...</p>
-      <div class="divider"></div>
-      <p class="help-text">如果網頁沒有自動跳轉，請點擊下方按鈕</p>
-      <a href="https://lin.ee/AOGmipm" class="btn-outline">手動開啟 LINE 諮詢</a>
+      <p class="status-text">已準備好您的詢問清單</p>
+      
+      <div class="info-card">
+        <div id="item-list" class="item-list">
+          <p class="loading">正在讀取清單...</p>
+        </div>
+      </div>
+
+      {/* 橋接區：將伺服器端資料傳遞給客戶端腳本 */}
+      <div 
+        id="data-bridge" 
+        data-products={JSON.stringify(simpleProducts)} 
+        data-ads-id={adsId} 
+        data-ads-label={adsLabel}
+        style="display:none"
+      ></div>
+
+      <button id="copy-btn" class="btn-primary" style="width: 100%; margin-bottom: 15px;">
+        <span class="material-symbols-outlined">content_copy</span> 複製詢問內容
+      </button>
+
+      <a href="https://lin.ee/AOGmipm" id="line-link" class="btn-outline">
+        前往 LINE 貼上並詢問
+      </a>
+      
+      <p id="copy-status" class="copy-status"></p>
     </div>
   </main>
 </Layout>
 
-<script define:vars={{ adsId, adsLabel }}>
-  // 發送 Google 廣告轉換事件
-  if (typeof gtag === 'function' && adsId && adsLabel) {
-    gtag('event', 'conversion', {
-      'send_to': `${adsId}/${adsLabel}`
+<script>
+  import { cartItems } from '../store';
+
+  function initConfigPage() {
+    const dataEl = document.getElementById('data-bridge');
+    const itemListEl = document.getElementById('item-list');
+    const copyBtn = document.getElementById('copy-btn');
+    const statusEl = document.getElementById('copy-status');
+
+    if (!dataEl || !itemListEl || !copyBtn || !statusEl) return;
+
+    // 1. 從 DOM 取得資料
+    const simpleProducts = JSON.parse(dataEl.getAttribute('data-products') || '[]');
+    const adsId = dataEl.getAttribute('data-ads-id');
+    const adsLabel = dataEl.getAttribute('data-ads-label');
+
+    // 2. 解析 URL 參數
+    const params = new URLSearchParams(window.location.search);
+    const productId = params.get('id');
+    const isFromCart = params.get('from') === 'cart';
+
+    let itemsToDisplay = [];
+
+    if (productId) {
+      const p = simpleProducts.find(x => x.id === productId);
+      if (p) itemsToDisplay.push(p);
+    } else if (isFromCart) {
+      itemsToDisplay = cartItems.get();
+    }
+
+    // 3. 渲染清單
+    if (itemsToDisplay.length > 0) {
+      itemListEl.innerHTML = itemsToDisplay.map(item => `
+        <div class="item-row">
+          <span class="name">${item.name}</span>
+          <span class="price">$${item.price.toLocaleString()}</span>
+        </div>
+      `).join('');
+    } else {
+      itemListEl.innerHTML = '<p style="text-align:center; opacity:0.5;">清單內目前沒有商品</p>';
+    }
+
+    // 4. 複製功能邏輯
+    copyBtn.addEventListener('click', () => {
+      if (itemsToDisplay.length === 0) return;
+
+      const text = "詢問商品：\n" + itemsToDisplay.map(item => `${item.name} $${item.price.toLocaleString()}`).join('\n');
+      
+      navigator.clipboard.writeText(text).then(() => {
+        statusEl.innerText = "✓ 已複製！請在 LINE 對話框「貼上」";
+        statusEl.classList.add('success');
+        
+        // 觸發 Google 廣告轉換
+        if (typeof (window as any).gtag === 'function' && adsId && adsLabel) {
+          (window as any).gtag('event', 'conversion', { 'send_to': `${adsId}/${adsLabel}` });
+        }
+      }).catch(() => {
+        statusEl.innerText = "複製失敗，請手動複製網頁文字";
+      });
     });
-    console.log('>>> [DEBUG] 已發送 Google 廣告轉換事件');
   }
 
-  // 1.5 秒後自動跳轉
-  setTimeout(() => {
-    window.location.href = "https://lin.ee/AOGmipm";
-  }, 1500);
+  // 確保在 Astro 頁面切換後仍能執行
+  document.addEventListener('astro:page-load', initConfigPage);
+  initConfigPage();
 </script>
 
 <style>
-  .redirect-page { display: flex; justify-content: center; align-items: center; min-height: 70vh; text-align: center; }
-  .message-box { max-width: 500px; padding: 40px; background: white; border: 1px solid rgba(62, 39, 35, 0.1); }
-  .icon-spin { font-size: 40px; color: var(--haku-ink); margin-bottom: 20px; animation: rotate 2s linear infinite; display: inline-block; }
-  .brand-title { font-family: 'Noto Sans TC', sans-serif; font-weight: 700; font-size: 1.5rem; letter-spacing: 1px; margin-bottom: 15px; color: var(--haku-ink); }
-  .status-text { font-weight: 700; color: var(--haku-ink); margin-bottom: 30px; }
-  .divider { height: 1px; background: var(--haku-ink); opacity: 0.1; margin: 20px auto; width: 50px; }
-  .help-text { font-size: 0.85rem; opacity: 0.6; margin-bottom: 20px; }
-  .btn-outline { display: inline-block; padding: 15px 30px; border: 1px solid var(--haku-ink); color: var(--haku-ink); text-decoration: none; font-weight: 700; font-size: 0.9rem; letter-spacing: 1px; transition: 0.3s; }
-  .btn-outline:hover { background: var(--haku-ink); color: var(--haku-paper); }
-  @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .redirect-page { display: flex; justify-content: center; align-items: center; min-height: 80vh; padding: 20px; }
+  .message-box { max-width: 450px; width: 100%; padding: 40px; background: white; border: 1px solid rgba(62, 39, 35, 0.1); text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.02); }
+  .brand-title { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1rem; letter-spacing: 2px; margin-bottom: 5px; opacity: 0.4; text-transform: uppercase; }
+  .status-text { font-size: 1.5rem; font-weight: 700; color: var(--haku-ink); margin-bottom: 30px; }
+  
+  .info-card { background: #F5F1E8; padding: 25px; border-radius: 4px; margin-bottom: 30px; text-align: left; border: 1px solid rgba(62, 39, 35, 0.05); }
+  .item-list { font-size: 0.95rem; line-height: 1.6; }
+  .item-row { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 12px; border-bottom: 1px solid rgba(62, 39, 35, 0.05); padding-bottom: 10px; }
+  .item-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .item-row .name { font-weight: 700; color: var(--haku-ink); }
+  .item-row .price { font-family: 'Montserrat', sans-serif; font-weight: 900; white-space: nowrap; color: #8D6E63; }
+
+  .btn-primary, .btn-outline { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 18px; font-weight: 700; text-decoration: none; transition: 0.3s; cursor: pointer; font-size: 1rem; border: 1px solid var(--haku-ink); width: 100%; }
+  .btn-primary { background: var(--haku-ink); color: var(--haku-paper); border: none; }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-outline { background: transparent; color: var(--haku-ink); }
+  .btn-outline:hover { background: var(--haku-ink); border-color: var(--haku-ink); color: var(--haku-paper); }
+
+  .copy-status { margin-top: 15px; font-size: 0.85rem; height: 1.2rem; font-weight: 700; }
+  .copy-status.success { color: var(--haku-ink); }
+  .loading { opacity: 0.5; font-style: italic; }
 </style>
