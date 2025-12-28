@@ -55,7 +55,7 @@ const schemaData = JSON.stringify({
 });
 ---
 
-<Layout title={pageTitle}>
+<Layout title={pageTitle} googleAdsId={config?.google_ads_id}>
   <script type="application/ld+json" set:html={schemaData} />
   <main class="container product-detail">
     
@@ -135,7 +135,7 @@ const schemaData = JSON.stringify({
           <button id="add-to-cart-btn" class="btn-primary" data-safe-json={safeJson}>
             加入購物車
           </button>
-          <a href="https://lin.ee/xeHmvkN" target="_blank" class="btn-outline">
+          <a href="/contact-success" target="_blank" class="btn-outline">
             <span class="material-symbols-outlined">chat</span>
             透過 LINE 查詢
           </a>

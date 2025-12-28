@@ -23,10 +23,10 @@ const grouped = featuredProducts.reduce((acc, p) => {
 }, {});
 const featuredCategories = Object.keys(grouped);
 
-const pageTitle = `${config?.site_title || "HAKU"} | 首頁`;
+const pageTitle = config?.site_title || "HAKU";
 ---
 
-<Layout title={pageTitle}>
+<Layout title={pageTitle} googleAdsId={config?.google_ads_id}>
   <div class="shop-wrapper">
     
     <ShopSidebar 

@@ -1,0 +1,50 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { fetchProducts } from '../utils/api';
+
+const { config } = await fetchProducts();
+const siteTitle = config?.site_title || "HAKU";
+const adsId = config?.google_ads_id;
+const adsLabel = config?.google_ads_label;
+---
+
+<Layout title={siteTitle} googleAdsId={adsId}>
+  <main class="container redirect-page">
+    <div class="message-box">
+      <div class="icon-spin material-symbols-outlined">sync</div>
+      <h1 class="brand-title">{siteTitle}</h1>
+      <p class="status-text">正在為您連接專屬客服...</p>
+      <div class="divider"></div>
+      <p class="help-text">如果網頁沒有自動跳轉，請點擊下方按鈕</p>
+      <a href="https://lin.ee/AOGmipm" class="btn-outline">手動開啟 LINE 諮詢</a>
+    </div>
+  </main>
+</Layout>
+
+<script define:vars={{ adsId, adsLabel }}>
+  // 發送 Google 廣告轉換事件
+  if (typeof gtag === 'function' && adsId && adsLabel) {
+    gtag('event', 'conversion', {
+      'send_to': `${adsId}/${adsLabel}`
+    });
+    console.log('>>> [DEBUG] 已發送 Google 廣告轉換事件');
+  }
+
+  // 1.5 秒後自動跳轉
+  setTimeout(() => {
+    window.location.href = "https://lin.ee/AOGmipm";
+  }, 1500);
+</script>
+
+<style>
+  .redirect-page { display: flex; justify-content: center; align-items: center; min-height: 70vh; text-align: center; }
+  .message-box { max-width: 500px; padding: 40px; background: white; border: 1px solid rgba(62, 39, 35, 0.1); }
+  .icon-spin { font-size: 40px; color: var(--haku-ink); margin-bottom: 20px; animation: rotate 2s linear infinite; display: inline-block; }
+  .brand-title { font-family: 'Noto Sans TC', sans-serif; font-weight: 700; font-size: 1.5rem; letter-spacing: 1px; margin-bottom: 15px; color: var(--haku-ink); }
+  .status-text { font-weight: 700; color: var(--haku-ink); margin-bottom: 30px; }
+  .divider { height: 1px; background: var(--haku-ink); opacity: 0.1; margin: 20px auto; width: 50px; }
+  .help-text { font-size: 0.85rem; opacity: 0.6; margin-bottom: 20px; }
+  .btn-outline { display: inline-block; padding: 15px 30px; border: 1px solid var(--haku-ink); color: var(--haku-ink); text-decoration: none; font-weight: 700; font-size: 0.9rem; letter-spacing: 1px; transition: 0.3s; }
+  .btn-outline:hover { background: var(--haku-ink); color: var(--haku-paper); }
+  @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
