@@ -46,7 +46,7 @@ const { title, googleAdsId } = Astro.props;
 			</div>
 			<a href="/" class="nav-logo">HAKU</a>
 			<div class="nav-icons">
-				<span class="material-symbols-outlined">search</span>
+				<span class="material-symbols-outlined" id="share-trigger">share</span>
 				{/* 這裡已經有 id="cart-trigger" */}
 				<span class="material-symbols-outlined" id="cart-trigger">shopping_bag</span>
 			</div>
@@ -89,6 +89,22 @@ const { title, googleAdsId } = Astro.props;
 			cartBtn?.addEventListener('click', () => {
 				isCartOpen.set(true);
 			});
+                        // 綁定分享按鈕 
+                        const shareBtn = document.getElementById("share-trigger"); 
+                        shareBtn?.addEventListener("click", async () => { 
+                                if (navigator.share) { 
+                                        try { 
+                                                await navigator.share({ 
+                                                        title: document.title, 
+                                                        url: window.location.href 
+                                                }); 
+                                        } catch (err) { 
+                                                console.log("分享失敗或取消", err); 
+                                        } 
+                                } else { 
+                                        alert("您的瀏覽器不支援原生分享功能。"); 
+                                } 
+                        });
 		</script>
 	</body>
 </html>

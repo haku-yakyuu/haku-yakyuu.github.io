@@ -260,28 +260,9 @@ const schemaData = JSON.stringify({
 
     if (addCartBtn?.hasAttribute("data-init")) return;
     addCartBtn?.setAttribute("data-init", "true");
-    addCartBtn?.addEventListener('click', (e) => {
-      e.preventDefault(); e.stopPropagation();
-      const safeJson = addCartBtn.getAttribute('data-safe-json');
-
-// --- Google Search 結構化資料 (Schema.org) --- 
-const currencyCode = config.site_currency || 'TWD'; 
-const fullUrl = `https://haku-yakyuu.github.io/product/${product.id}`; 
-const schemaData = JSON.stringify({ 
-  "@context": "https://schema.org/", 
-  "@type": "Product", 
-  "name": product.name, 
-  "image": imagesArr.map(img => `https://haku-yakyuu.github.io${img}`), 
-  "description": product.desc || '', 
-  "sku": product.id, 
-  "offers": { 
-    "@type": "Offer", 
-    "url": fullUrl, 
-    "priceCurrency": currencyCode, 
-    "price": product.price, 
-    "availability": "https://schema.org/InStock" 
-  } 
-});
+    addCartBtn?.addEventListener("click", (e) => { 
+      e.preventDefault(); e.stopPropagation(); 
+      const safeJson = addCartBtn.getAttribute("data-safe-json");
       if (safeJson) {
         try {
           const productData = JSON.parse(decodeURIComponent(safeJson));
