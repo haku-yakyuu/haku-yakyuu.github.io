@@ -29,18 +29,7 @@ export function addToCart(product) {
   } else {
     // 如果是新商品，推入陣列
     // 處理圖片邏輯：若沒圖片或圖片格式不對，給定 'no_image' 標記
-    let displayImage = 'no_image';
-    if (product.layout && product.layout !== 'no_image' && product.layout !== 'vertical' && product.layout !== 'horizontal') {
-       // 假設 layout 欄位是網址 (如果你的資料結構 images 才是網址，請依實際情況調整)
-       // 根據我們之前的對話，你的 layout 欄位存的是圖片 URL
-       const imgs = product.layout.split(',');
-       if(imgs.length > 0 && imgs[0].trim() !== '') displayImage = imgs[0].trim();
-    } else if (product.layout && (product.layout.startsWith('http') || product.layout.startsWith('/'))) {
-       // 雙重確認 layout 是連結
-        const imgs = product.layout.split(',');
-        if(imgs.length > 0) displayImage = imgs[0].trim();
-    }
-
+    const displayImage = (product.layout && product.layout.startsWith("/")) ? product.layout : (product.layout === "no_image" ? "no_image" : `/products/${product.id}-0.jpg`);
     cartItems.set([...currentItems, { 
         id: product.id, 
         name: product.name, 

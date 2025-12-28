@@ -70,22 +70,8 @@
       const el = document.createElement('div');
       el.className = 'cart-item';
       
-      // --- 圖片邏輯修正 ---
-      let hasImage = false;
-      let imgContent = '<span class="material-symbols-outlined">shopping_bag</span>';
-      
-      const rawImages = item.layout_images || item.images || "";
-      if (rawImages) {
-        const firstRaw = rawImages.split(',')[0].trim();
-        if (firstRaw) {
-          let imgSrc = firstRaw;
-          if (!imgSrc.startsWith('http') && !imgSrc.startsWith('/')) {
-            imgSrc = '/' + imgSrc;
-          }
-          imgContent = `<img src="${imgSrc}" alt="${item.name}">`;
-          hasImage = true;
-        }
-      }
+      let hasImage = item.image && item.image !== "no_image";
+      let imgContent = hasImage ? `<img src="${item.image}" alt="${item.name}">` : `<span class="material-symbols-outlined">shopping_bag</span>`;
 
       const formattedPrice = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(item.price);
 
