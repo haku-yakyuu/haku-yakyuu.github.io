@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Sitemap 連結
+Sitemap: https://haku-yakyuu.github.io/sitemap-index.xml

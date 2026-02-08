@@ -2,6 +2,10 @@ import { defineConfig } from 'astro/config';
 
 import sitemap from '@astrojs/sitemap';
 
+import react from '@astrojs/react';
+
+import tailwindcss from '@tailwindcss/vite';
+
 export default defineConfig({
   // ⚠️ 1. 請填入你的 GitHub Pages 網址 (例如 https://你的帳號.github.io)
   site: 'https://haku-yakyuu.github.io',
@@ -10,5 +14,9 @@ export default defineConfig({
   // 如果是使用者主頁 (user site)，則留空字串 ''
   base: '',
 
-  integrations: [sitemap()],
+  integrations: [sitemap(), react()],
+
+  vite: {
+    plugins: [tailwindcss()],
+  },
 });
