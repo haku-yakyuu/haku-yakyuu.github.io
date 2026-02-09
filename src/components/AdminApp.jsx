@@ -639,10 +639,8 @@ export default function AdminApp() {
             {/* Main Workspace */}
             <main className="flex-1 overflow-y-auto w-full">
                 <div className="p-6 md:p-16 max-w-7xl mx-auto pb-32">
-                    <header className="flex flex-col md:flex-row md:items-center justify-between mb-12 md:mb-20 gap-8">
-                        <div>
-                            <h1 className="text-3xl md:text-5xl font-Montserrat font-black tracking-tighter text-[var(--haku-ink)] uppercase">維護中心</h1>
-                        </div>
+                    <header className="flex flex-col md:flex-row md:items-center justify-end mb-12 md:mb-20 gap-8">
+                        {/* Title removed as requested */}
                         <button
                             onClick={handleCreateNew}
                             disabled={!!editingProduct}
@@ -665,19 +663,6 @@ export default function AdminApp() {
 
                                     {/* Image Management Section */}
                                     <div className="lg:col-span-12 space-y-6 md:space-y-10">
-                                        <div className="flex justify-between items-end border-b border-[var(--haku-ink)]/10 pb-4">
-                                            <div>
-                                                <label className="text-[10px] font-Montserrat font-black uppercase tracking-[0.3em] text-[var(--haku-ink)]">媒體資產</label>
-                                                <p className="text-[9px] opacity-30 uppercase font-bold mt-1">支援拖曳排序功能</p>
-                                            </div>
-                                            <button
-                                                type="button" onClick={triggerFileUpload}
-                                                className="px-6 py-3 border border-[var(--haku-ink)] text-[10px] font-Montserrat font-black tracking-widest uppercase flex items-center gap-3 bg-transparent text-[var(--haku-ink)] hover:bg-[var(--haku-ink)] hover:text-[var(--haku-paper)] transition-all active:scale-95"
-                                            >
-                                                <Upload size={14} /> 上傳新圖
-                                            </button>
-                                        </div>
-
                                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6">
                                             {(editingProduct.rawImagesData || editingProduct.images || []).map((imgData, idx) => {
                                                 const src = imgData.preview || getProductImage(imgData.url || imgData);
@@ -706,6 +691,14 @@ export default function AdminApp() {
                                                 </div>
                                             )}
                                         </div>
+
+                                        {/* Full-width Upload Button below the grid */}
+                                        <button
+                                            type="button" onClick={triggerFileUpload}
+                                            className="w-full py-5 border border-[var(--haku-ink)]/20 text-[10px] font-Montserrat font-black tracking-[0.3em] uppercase flex items-center justify-center gap-4 bg-transparent text-[var(--haku-ink)] hover:bg-[var(--haku-ink)] hover:text-[var(--haku-paper)] hover:border-[var(--haku-ink)] transition-all active:scale-[0.98]"
+                                        >
+                                            <Upload size={16} /> 上傳檔案
+                                        </button>
                                     </div>
 
                                     {/* Text Fields */}
