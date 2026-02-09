@@ -92,9 +92,9 @@ const CropperPage = ({ cropImage, setCropImage, crop, setCrop, zoom, setZoom, on
             </button>
         </div>
 
-        {/* Main Crop Area */}
-        <div className="flex-1 relative bg-[var(--placeholder-bg)]/30 flex items-center justify-center p-4 md:p-10">
-            <div className="relative w-full max-w-2xl aspect-square shadow-2xl border border-[var(--haku-ink)]/10 bg-white">
+        {/* Main Crop Area - Adjusted for mobile */}
+        <div className="flex-1 relative bg-[var(--placeholder-bg)]/30 flex items-center justify-center p-4 md:p-10 min-h-[50vh] md:min-h-0">
+            <div className="relative w-full max-w-2xl aspect-square shadow-2xl border border-[var(--haku-ink)]/10 bg-white" style={{ maxHeight: 'calc(100vh - 280px)' }}>
                 <Cropper
                     image={cropImage}
                     crop={crop}
@@ -387,6 +387,36 @@ export default function AdminApp() {
             desc: '',
             updatedAt: ''
         });
+    };
+
+    const handleDelete = async () => {
+        if (!editingProduct || !editingProduct.id) return;
+        const isExisting = products.some(p => p.id === editingProduct.id);
+        if (!isExisting) {
+            setEditingProduct(null);
+            return;
+        }
+        if (!window.confirm(`確定要刪除商品 [${editingProduct.id}] 嗎？\n此操作無法復原。`)) return;
+
+        setIsProcessing(true);
+        showDialog('success', '刪除中', '正在移除商品資料...');
+
+        try {
+            await fetch(GAS_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'delete', id: editingProduct.id })
+            });
+
+            setProducts(products.filter(p => p.id !== editingProduct.id));
+            setEditingProduct(null);
+            showDialog('success', '已刪除', `商品 [${editingProduct.id}] 已成功移除`);
+        } catch (err) {
+            console.error(err);
+            showDialog('error', '刪除失敗', err.message);
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     const handleSave = async (e) => {
@@ -747,9 +777,18 @@ export default function AdminApp() {
                                     </div>
                                 </div>
 
-                                <div className="flex flex-col-reverse md:flex-row justify-end gap-6 md:gap-10 pt-16 border-t border-[var(--haku-ink)]/10">
-                                    <button type="button" onClick={() => setEditingProduct(null)} className="w-full md:w-auto px-12 py-5 text-[10px] font-Montserrat font-black tracking-[0.4em] uppercase border border-[var(--haku-ink)]/10 hover:border-[var(--haku-ink)] transition-all active:scale-95">捨棄變更</button>
-                                    <button type="submit" className="w-full md:w-auto px-16 py-5 text-[10px] font-Montserrat font-black tracking-[0.4em] uppercase bg-[var(--haku-ink)] text-[var(--haku-paper)] transition-all hover:shadow-2xl active:scale-95">核對並儲存</button>
+                                <div className="flex flex-col-reverse md:flex-row justify-between gap-6 md:gap-10 pt-16 border-t border-[var(--haku-ink)]/10">
+                                    {/* Delete Button - only for existing products */}
+                                    {products.some(p => p.id === editingProduct.id) && (
+                                        <button type="button" onClick={handleDelete} className="w-full md:w-auto px-8 py-5 text-[10px] font-Montserrat font-black tracking-[0.4em] uppercase border border-[var(--haku-ink)]/20 text-[var(--haku-ink)]/60 hover:border-[var(--haku-ink)] hover:text-[var(--haku-ink)] transition-all active:scale-95 flex items-center justify-center gap-3">
+                                            <Trash2 size={14} />
+                                            刪除商品
+                                        </button>
+                                    )}
+                                    <div className="flex flex-col-reverse md:flex-row gap-6 md:gap-10 md:ml-auto">
+                                        <button type="button" onClick={() => setEditingProduct(null)} className="w-full md:w-auto px-12 py-5 text-[10px] font-Montserrat font-black tracking-[0.4em] uppercase border border-[var(--haku-ink)]/10 hover:border-[var(--haku-ink)] transition-all active:scale-95">捨棄變更</button>
+                                        <button type="submit" className="w-full md:w-auto px-16 py-5 text-[10px] font-Montserrat font-black tracking-[0.4em] uppercase bg-[var(--haku-ink)] text-[var(--haku-paper)] transition-all hover:shadow-2xl active:scale-95">核對並儲存</button>
+                                    </div>
                                 </div>
                             </form>
                         </div>
