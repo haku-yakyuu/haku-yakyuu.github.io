@@ -17,7 +17,7 @@ const { title } = Astro.props;
 		<title>{title}</title>
 		<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&family=Noto+Sans+TC:wght@400;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
 	</head>
-	<body class="bg-[#F5F1E8]">
+	<body class="bg-[var(--haku-paper)] text-[var(--haku-ink)]">
 		<slot />
 	</body>
 </html>
@@ -27,6 +27,11 @@ const { title } = Astro.props;
 		--haku-ink: #3E2723;
 		--haku-paper: #F5F1E8;
 	}
-    /* Ensure React root takes full height if needed */
-    html, body { height: 100%; margin: 0; }
+    html, body { 
+        height: 100%; 
+        margin: 0; 
+        background: var(--haku-paper);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
 </style>

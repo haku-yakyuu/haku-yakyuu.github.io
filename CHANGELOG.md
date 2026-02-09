@@ -1,32 +1,21 @@
-# HAKU Admin Dashboard Changelog
+# 更新日誌 (Changelog) - 2026-02-09
 
-## [v2.2.1] - 2026-02-08
+## [v2.2.0] - 管理系統深度優化與 404 問題修正
 
-### Fixed
-- **Runtime Error**: Fixed `Uncaught ReferenceError: Edit3 is not defined` and other icon import errors in `AdminApp.jsx`.
-- **Image 404s**: Resolved client-side 404 errors by ensuring admin saves only filenames (not full URLs) to Google Sheets, matching client display logic.
+### 🚀 新增功能 (New Features)
+- **獨立裁切頁面 (CropperPage)**：將裁切功能從 Modal 升級為全螢幕 Page，提升操作空間與流暢度。
+- **本地持久化快取 (Persistence Cache)**：利用 `localStorage` 暫存上傳圖片，確保 GitHub Pages 部署期間也能即時預覽。
+- **自動化商品編號**：新增商品時自動產生 `haku_YYMMDDHHMMSS` 格式 ID。
+- **公共端圖片備援機制**：公共端 (localhost) 偵測到圖片 404 時會自動向 Production 環境抓取圖片，便利本地開發測試。
 
-## [v2.2.0] - 2026-02-07
+### 🛠 修復與優化 (Fixes & Refinements)
+- **裁切流暢度**：調整 zoom step 至 `0.01`，解決縮放時的跳躍感。
+- **圖片排序 Bug**：修復了現有圖片重新排序後內容未更新至 GitHub 的問題。
+- **介面精簡**：移除 Admin UI 中多餘的品牌字樣，標題更名為「維護中心」。
+- **連結修正**：右上角 User 按鈕現在會導向官網首頁 (`/`)。
+- **圖片壓縮調整**：將最大尺寸設定為 `1000 x 1000`，並優化壓縮比以維持畫質。
+- **按鈕鎖定**：編輯狀態下自動禁用「新增品項」按鈕，防止操作衝突。
 
-### Added
-- **AdminEditor Component**: Split the admin interface into a dedicated Editor component for better maintainability.
-- **Search & Sort**: Added real-time search (Name/ID) and "Newest/Oldest" sorting to the product dashboard.
-- **Responsive Navigation**: Implemented a collapsible drawer and mobile-optimized header.
-
-### Changed
-- **UI/UX Overhaul**: 
-  - Removed the persistent sidebar for a cleaner, linear flow.
-  - Applied **HAKU Brand Colors** (Ink `#3E2723`, Paper `#F5F1E8`) throughout the admin interface.
-  - Replaced generic status badges with brand-consistent styles.
-  - Increased vertical spacing in forms for better mobile touch targets.
-- **Architecture**: Migrated complex state management to React (`AdminApp.jsx`).
-
-## [v2.1.0] - 2026-02-06
-### Added
-- **Mobile-First Design**: Implemented responsive layouts for Data Grid (Card View on mobile) and Editor Modal.
-
-## [v2.0.0] - 2026-02-05
-### Added
-- **Serverless Admin**: Initial release of the React-based Admin Dashboard powered by Google Apps Script and GitHub API.
-- **Authentication**: Simple password-based protection with encrypted GitHub PAT.
-- **Image Handling**: Client-side compression and upload to GitHub.
+### 🎨 品牌視覺 (Branding)
+- **標誌校正**：移除所有 HAKU 字樣的斜體 (italic) 樣式，回歸品牌原始預設。
+- **顏色規範**：修正登出按鈕顏色由紅色轉為品牌深褐色 (`ink`)。

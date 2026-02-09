@@ -14,13 +14,12 @@ export async function getStaticPaths() {
   }));
 }
 
-const { product } = Astro.props;
-const { config } = await fetchProducts();
+import { getProductImagePath } from '../../utils/imagePath';
 
 // --- 圖片資料處理 ---
 const rawImages = product.layout_images || product.images || "";
 const imagesCount = rawImages ? rawImages.split(",").length : 0;
-const imagesArr = Array.from({ length: imagesCount }, (_, i) => `/products/${product.id}-${i}.jpg`);
+const imagesArr = Array.from({ length: imagesCount }, (_, i) => getProductImagePath(`/products/${product.id}-${i}.jpg`));
 
 const hasImages = imagesArr.length > 0;
 const priceStr = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: config.site_currency || 'TWD', maximumFractionDigits: 0 }).format(product.price);
@@ -42,7 +41,7 @@ const schemaData = JSON.stringify({
   "@context": "https://schema.org/", 
   "@type": "Product", 
   "name": product.name, 
-  "image": imagesArr.map(img => `https://haku-yakyuu.github.io${img}`), 
+  "image": imagesArr.map(img => img.startsWith('http') ? img : `https://haku-yakyuu.github.io${img}`), 
   "description": product.desc || '', 
   "sku": product.id, 
   "offers": { 
