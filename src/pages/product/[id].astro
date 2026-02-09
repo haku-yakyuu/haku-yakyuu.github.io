@@ -16,6 +16,9 @@ export async function getStaticPaths() {
 
 import { getProductImagePath } from '../../utils/imagePath';
 
+const { product } = Astro.props;
+const { config } = await fetchProducts();
+
 // --- 圖片資料處理 ---
 const rawImages = product.layout_images || product.images || "";
 const imagesCount = rawImages ? rawImages.split(",").length : 0;
