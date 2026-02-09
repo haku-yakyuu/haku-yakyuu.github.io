@@ -654,9 +654,18 @@ export default function AdminApp() {
                     {/* Editor Modal */}
                     {editingProduct && (
                         <div className="mb-12 md:mb-24 bg-[var(--haku-paper)] p-8 md:p-16 border border-[var(--haku-ink)]/20 shadow-[-20px_20px_60px_rgba(62,39,35,0.05)] relative animate-in fade-in slide-in-from-bottom-8 duration-700">
-                            <button onClick={() => setEditingProduct(null)} className="absolute top-6 right-6 md:top-10 md:right-10 p-2 opacity-20 hover:opacity-100 transition-all active:scale-75">
-                                <X size={28} className="text-[var(--haku-ink)]" />
-                            </button>
+                            {/* Modal Header for better spacing and clarity */}
+                            <div className="flex justify-between items-center mb-10 md:mb-16 border-b border-[var(--haku-ink)]/10 pb-6">
+                                <div className="flex items-center gap-4">
+                                    <Package size={20} className="text-[var(--haku-ink)] opacity-40" />
+                                    <h2 className="text-[12px] font-Montserrat font-black uppercase tracking-[0.4em] text-[var(--haku-ink)]">
+                                        {products.some(p => p.id === editingProduct.id) ? `編輯商品 [${editingProduct.id}]` : '新增商品內容'}
+                                    </h2>
+                                </div>
+                                <button onClick={() => setEditingProduct(null)} className="p-2 opacity-40 hover:opacity-100 transition-all active:scale-95 group" title="關閉編輯器">
+                                    <X size={28} className="text-[var(--haku-ink)] transition-transform group-hover:rotate-90" />
+                                </button>
+                            </div>
 
                             <form onSubmit={handleSave} className="space-y-12 md:space-y-20">
                                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 md:gap-20">
