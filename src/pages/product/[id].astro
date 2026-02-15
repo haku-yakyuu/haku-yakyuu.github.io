@@ -20,9 +20,15 @@ const { product } = Astro.props;
 const { config } = await fetchProducts();
 
 // --- 圖片資料處理 ---
-const rawImages = product.layout_images || product.images || "";
-const imagesCount = rawImages ? rawImages.split(",").length : 0;
-const imagesArr = Array.from({ length: imagesCount }, (_, i) => getProductImagePath(`/products/${product.id}-${i}.jpg`));
+const rawImages = product.images || "";
+const imagesArr = rawImages 
+  ? (typeof rawImages === 'string' ? rawImages.split(",") : rawImages)
+      .map((img: string) => {
+        img = img.trim();
+        if (img.startsWith('http') || img.startsWith('data:') || img.startsWith('/')) return img;
+        return getProductImagePath(`/products/${img}`);
+      })
+  : [];
 
 const hasImages = imagesArr.length > 0;
 const priceStr = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: config.site_currency || 'TWD', maximumFractionDigits: 0 }).format(product.price);

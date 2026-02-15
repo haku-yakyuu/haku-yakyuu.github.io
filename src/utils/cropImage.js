@@ -43,7 +43,7 @@ export async function getCroppedImg(imageSrc, pixelCrop) {
     return new Promise((resolve) => {
         canvas.toBlob((file) => {
             resolve(URL.createObjectURL(file))
-        }, 'image/jpeg')
+        }, 'image/webp')
     })
 }
 
@@ -74,6 +74,6 @@ export async function getCroppedImgBlob(imageSrc, pixelCrop) {
     return new Promise((resolve) => {
         canvas.toBlob((blob) => {
             resolve(blob)
-        }, 'image/jpeg')
+        }, 'image/webp')
     })
 }

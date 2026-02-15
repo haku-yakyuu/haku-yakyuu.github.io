@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "astro dev --host",
     "start": "astro dev",
     "build": "node scripts/sync-images.mjs && astro build",
     "preview": "astro preview",
@@ -20,6 +20,7 @@
     "astro": "^5.0.0",
     "browser-image-compression": "^2.0.2",
     "crypto-js": "^4.2.0",
+    "firebase": "^12.9.0",
     "lucide-react": "^0.563.0",
     "nanostores": "^1.1.0",
     "react": "^19.2.4",

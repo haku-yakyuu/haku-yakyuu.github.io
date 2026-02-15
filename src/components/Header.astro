@@ -20,7 +20,9 @@ const categories = [...new Set(products.map((p: any) => p.category).filter((c: a
     </div>
 
     <div class="header-center">
-      <a href="/" class="logo-text">{siteName}</a>
+      <a href="/" class="logo-link">
+        <img src="/logotype-dark.png" alt={siteName} class="header-logo" />
+      </a>
     </div>
 
     <div class="header-right">
@@ -33,7 +35,7 @@ const categories = [...new Set(products.map((p: any) => p.category).filter((c: a
 <div id="sidebar-overlay" class="overlay"></div>
 <aside id="sidebar" class="sidebar">
   <div class="sidebar-header">
-    <span class="sidebar-logo">{siteName}</span>
+    <img src="/logotype-dark.png" alt={siteName} class="sidebar-logo-img" />
     <button id="menu-close" class="icon-btn"><span class="material-symbols-outlined">close</span></button>
   </div>
   <nav class="sidebar-nav">
@@ -77,13 +79,14 @@ const categories = [...new Set(products.map((p: any) => p.category).filter((c: a
   .header-left, .header-right { flex: 1; display: flex; gap: 15px; }
   .header-right { justify-content: flex-end; }
   .header-center { flex: 2; text-align: center; }
-  .logo-text {
-    font-family: 'Montserrat', sans-serif;
-    font-weight: 900;
-    font-size: 1.5rem;
-    text-decoration: none;
-    color: var(--haku-ink);
-    letter-spacing: 2px;
+  .header-logo {
+    height: 32px;
+    width: auto;
+    display: block;
+    margin: 0 auto;
+  }
+  @media (max-width: 768px) {
+    .header-logo { height: 24px; }
   }
   .icon-btn {
     background: none; border: none; cursor: pointer; color: var(--haku-ink);
@@ -102,7 +105,7 @@ const categories = [...new Set(products.map((p: any) => p.category).filter((c: a
   }
   .overlay.active { opacity: 1; pointer-events: auto; }
   .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
-  .sidebar-logo { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.2rem; }
+  .sidebar-logo-img { height: 24px; width: auto; }
   .sidebar-nav { display: flex; flex-direction: column; gap: 20px; }
   .sidebar-nav a { text-decoration: none; color: var(--haku-ink); font-weight: 700; font-size: 1.1rem; }
   .nav-divider { height: 1px; background: rgba(62,39,35,0.1); margin: 10px 0; }

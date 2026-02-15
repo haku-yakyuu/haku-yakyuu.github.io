@@ -1,19 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     Search, Plus, LogOut, ArrowUp, ArrowDown, CheckCircle, AlertCircle, Lock,
-    Menu, Package, Upload, ArrowLeft, ArrowRight, Image as ImageIcon, Star, Trash2, X, Edit3, User, Crop
+    Menu, Package, Upload, ArrowLeft, ArrowRight, Image as ImageIcon, Star, Trash2, X, Edit3, User, Crop, PenLine
 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import Cropper from 'react-easy-crop';
 import CryptoJS from 'crypto-js';
+import { auth, googleProvider, db } from '../services/firebase';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { collection, getDocs, doc, setDoc, getDoc, deleteDoc, query, orderBy, writeBatch } from 'firebase/firestore';
 import { getCroppedImg } from '../utils/cropImage';
 
 // --- Configuration ---
-const GAS_API_URL = "https://script.google.com/macros/s/AKfycbw7jGvpY2DU5dPdSdkXMcL4Mnf0jZIcKfMYEJOkIiDIm7qoMkGid-upq1AJ3mVRP9Il/exec";
 const GITHUB_OWNER = "haku-yakyuu";
 const GITHUB_REPO = "haku-yakyuu.github.io";
 const GITHUB_BRANCH = "main";
-const ENCRYPTED_TOKEN = "U2FsdGVkX1+VhTXj07qRpVUojK3OfTm/2e89vcATiPZEU+AwvuLdOeInMR/EYKQB1ZVIR8zSREm8rGpHstt/SuWv35IJNA4PUAvcptg06lvCNusYM1+LkxZ00xvS5n54cpghy6rxe6J2TQbxa3DztQ==";
 
 // --- Design Specs ---
 const COLORS = {
@@ -27,6 +28,12 @@ const COLORS = {
 };
 
 const INITIAL_CATEGORIES = ["WBCQ資格賽", "日本職棒", "徐若熙", "經典賽", "MLB", "中職"];
+const ADMIN_WHITELIST = [
+    'bohan816@gmail.com',
+    'jing370209@gmail.com',
+    'wj209ing@gmai.com'
+];
+
 const STATUS_OPTIONS = [
     { label: "上架中", value: "active" },
     { label: "已隱藏", value: "hidden" },
@@ -61,9 +68,9 @@ const LoadingOverlay = ({ isProcessing }) => (
 const StatusDialog = ({ dialog }) => (
     <div className={`fixed top-8 left-1/2 -translate-x-1/2 z-[11000] transition-all duration-700 transform ${dialog.show ? 'translate-y-0 opacity-100' : '-translate-y-20 opacity-0 pointer-events-none'}`}>
         <div className="flex items-center gap-6 px-10 py-5 bg-[var(--haku-paper)] shadow-2xl border border-[var(--haku-ink)]/10 min-w-[360px] relative overflow-hidden">
-            <div className={`absolute left-0 top-0 bottom-0 w-1 ${dialog.type === 'error' ? 'bg-red-800' : 'bg-[var(--haku-ink)]'}`}></div>
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${dialog.type === 'error' ? 'bg-[var(--haku-ink)] opacity-50' : 'bg-[var(--haku-ink)]'}`}></div>
             {dialog.type === 'error' ?
-                <AlertCircle className="text-red-800" size={22} /> :
+                <AlertCircle className="text-[var(--haku-ink)] opacity-60" size={22} /> :
                 <CheckCircle className="text-[var(--haku-ink)]" size={22} />
             }
             <div className="flex-1">
@@ -142,9 +149,13 @@ const CropperPage = ({ cropImage, setCropImage, crop, setCrop, zoom, setZoom, on
 );
 
 export default function AdminApp() {
+    const [user, setUser] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [password, setPassword] = useState('');
     const [githubToken, setGithubToken] = useState('');
+
+    const [activeTab, setActiveTab] = useState('list'); // 'list' | 'edit'
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 6;
 
     // Dialog State
     const [dialog, setDialog] = useState({ show: false, type: 'success', title: '', message: '' });
@@ -163,6 +174,32 @@ export default function AdminApp() {
 
     // --- Init ---
     useEffect(() => {
+        // Firebase Auth listener
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+            if (firebaseUser) {
+                if (ADMIN_WHITELIST.includes(firebaseUser.email)) {
+                    setUser(firebaseUser);
+                    setIsLoggedIn(true); // Whitelisted Google User is considered logged in
+
+                    // Recover GitHub token for image operations
+                    const savedToken = localStorage.getItem('github_token');
+                    if (savedToken) {
+                        setGithubToken(savedToken);
+                    }
+
+                    fetchProducts();
+                } else {
+                    // Not in whitelist
+                    signOut(auth);
+                    showDialog('error', '權限不足', '您的帳號不在管理員白名單中');
+                }
+            } else {
+                setUser(null);
+                setIsLoggedIn(false);
+                setGithubToken('');
+            }
+        });
+
         // Cleanup old cache entries on mount (e.g., older than 2 days)
         try {
             const keys = Object.keys(localStorage);
@@ -188,12 +225,7 @@ export default function AdminApp() {
             setLocalCache(restoredCache);
         } catch (e) { console.error("Cache cleanup error", e); }
 
-        const savedToken = sessionStorage.getItem('github_token');
-        if (savedToken) {
-            setGithubToken(savedToken);
-            setIsLoggedIn(true);
-            fetchProducts();
-        }
+        return () => unsubscribe();
     }, []);
 
     // --- Actions ---
@@ -202,63 +234,153 @@ export default function AdminApp() {
         setTimeout(() => setDialog(prev => ({ ...prev, show: false })), 3000);
     };
 
-    const handleLogin = (e) => {
-        e.preventDefault();
+    const handleGoogleLogin = async () => {
+        setIsProcessing(true);
         try {
-            const bytes = CryptoJS.AES.decrypt(ENCRYPTED_TOKEN, password);
-            const decryptedToken = bytes.toString(CryptoJS.enc.Utf8);
-
-            if (decryptedToken.startsWith('github_pat_')) {
-                sessionStorage.setItem('github_token', decryptedToken);
-                setGithubToken(decryptedToken);
-                setIsLoggedIn(true);
-                showDialog('success', '驗證成功', '正在進入 HAKU 維護系統...');
-                fetchProducts(); // Load data
+            const result = await signInWithPopup(auth, googleProvider);
+            if (ADMIN_WHITELIST.includes(result.user.email)) {
+                setUser(result.user);
+                setIsLoggedIn(true); // Success!
+                fetchProducts();
+                showDialog('success', '驗證成功', 'Google 帳號已登入');
             } else {
-                showDialog('error', '驗證失敗', '密碼不正確');
+                await signOut(auth);
+                showDialog('error', '權限不足', '您的帳號不在管理員白名單中');
             }
-        } catch (e) {
-            showDialog('error', '驗證失敗', '密碼不正確');
+        } catch (error) {
+            console.error(error);
+            showDialog('error', '登入失敗', error.message);
+        } finally {
+            setIsProcessing(false);
         }
     };
 
-    const fetchProducts = async () => {
-        if (!GAS_API_URL || GAS_API_URL.includes("YOUR_GAS_WEB_APP_URL")) {
-            console.warn("GAS_API_URL is not configured.");
-            return;
-        }
+    const handleLogout = async () => {
+        await signOut(auth);
+        localStorage.removeItem('github_token');
+        setIsLoggedIn(false);
+        setUser(null);
+        setGithubToken('');
+        setActiveTab('list');
+    };
 
+    const fetchProducts = async () => {
         setIsLoading(true);
         try {
-            // doGet via GAS
-            const res = await fetch(GAS_API_URL);
-            const contentType = res.headers.get("content-type");
-            if (!contentType || !contentType.includes("application/json")) {
-                throw new Error("Received non-JSON response from GAS. Check your URL deployment.");
-            }
+            // 1. Fetch Products
+            const productsCol = collection(db, 'products');
+            const snapshot = await getDocs(productsCol);
 
-            const data = await res.json();
-            // Map GAS data to our state structure if needed
-            // GAS returns: { products: [...], config: {...} }
-            // Product structure in GAS: {id, name, price, stock, category, isFeatured, tags, status, images, layout, desc}
-            // Images string "url1,url2" -> array
-            const mappedProducts = data.products.map(p => ({
-                ...p,
-                images: p.images ? p.images.split(',').map(img => {
-                    img = img.trim();
-                    if (img.startsWith('http') || img.startsWith('data:') || img.startsWith('/')) return img;
-                    return `/products/${img}`;
-                }) : [],
-                price: Number(p.price),
-                stock: Number(p.stock),
-                isFeatured: p.isFeatured === true || p.isFeatured === "true"
-            }));
+            const mappedProducts = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    ...data,
+                    id: doc.id,
+                    images: data.images ? data.images.split(',').map(img => {
+                        img = img.trim();
+                        if (img.startsWith('http') || img.startsWith('data:') || img.startsWith('/')) return img;
+                        return `/products/${img}`;
+                    }) : [],
+                    price: Number(data.price),
+                    stock: Number(data.stock),
+                    isFeatured: data.isFeatured === true || data.isFeatured === "true" || data.isFeatured === "TRUE"
+                };
+            }).sort((a, b) => b.id.localeCompare(a.id));
             setProducts(mappedProducts);
+
+            // 2. Auto-Fetch GitHub Token from private collection
+            if (!githubToken) {
+                const tokenDoc = await getDoc(doc(db, 'admin_config', 'github'));
+                if (tokenDoc.exists()) {
+                    setGithubToken(tokenDoc.data().token);
+                    showDialog('success', '權限就緒', '已自動載入雲端上傳授權');
+                }
+            }
         } catch (err) {
             console.error(err);
-            showDialog('error', '載入失敗', '無法從 Google Sheets 讀取資料: ' + err.message);
+            showDialog('error', '載入失敗', '無法讀取資料: ' + err.message);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const migrateToFirebase = async () => {
+        if (!window.confirm("確定要執行資料遷移嗎？這將會覆寫 Firestore 中的現有資料。")) return;
+        setIsProcessing(true);
+        showDialog('success', '遷移中', '正在將資料導入 Firebase...');
+
+        try {
+            const batch = writeBatch(db);
+
+            // Settings Migration
+            const settingsData = [
+                { "Setting_Key": "solid_tags", "Value": "精選" },
+                { "Setting_Key": "site_title", "Value": "棒球選品｜HAKU" },
+                { "Setting_Key": "announcement", "Value": "職人眼光的棒球選品" },
+                { "Setting_Key": "about_text", "Value": "我們最早起步於棒球競標社團，在社群交流與販售中累積經驗，也逐步建立對商品品質與交易信任的重視。\n隨著經營方式成熟，開始進駐 Yahoo 奇摩拍賣，並同步於 蝦皮購物 進行寄賣，讓更多人能透過不同平台找到我們。\n目前官方網站作為商品展示與資訊整合平台，可瀏覽我們販售過與現正提供的商品內容，但尚未開放線上直接下單功能。\n若對商品有興趣，歡迎加入 LINE 官方帳號 @191wyokh 私訊洽詢，我們將協助確認庫存、報價與寄送方式。" },
+                { "Setting_Key": "yahoo_url", "Value": "https://tw.bid.yahoo.com/booth/Y1816698905" },
+                { "Setting_Key": "google_verification", "Value": "RSCsK8X-OoCTr2uKZ2oKz-QbY1SjZWYLZRIfQz9NKWY" },
+                { "Setting_Key": "site_currency", "Value": "TWD" },
+                { "Setting_Key": "google_ads_id", "Value": "" },
+                { "Setting_Key": "google_ads_label", "Value": "" }
+            ];
+
+            settingsData.forEach(s => {
+                const sRef = doc(db, 'settings', s.Setting_Key);
+                batch.set(sRef, { Value: s.Value });
+            });
+
+            // Pages Migration
+            const pagesData = [
+                { "slug": "terms", "title": "服務條款", "content": "歡迎來到 HAKU（以下簡稱「本站」）。當您瀏覽或使用本站所提供的各項服務時，即視同您已詳盡閱讀、完全瞭解並同意接受本服務條款之所有內容。\n\n本站致力於提供棒球相關紀念品與收藏品的資訊展示及預訂服務。需要請您注意的是，本站網頁上所標示的各項商品資訊，包含價格、庫存及樣式等皆僅供參考，並不代表最終交易結果。由於此類商品具備高度的獨特性與稀有性，所有商品的具體物況均以描述與圖片為準，實際的庫存狀況與交易細節請您透過私訊詢問，並以確認之訊息為準。\n\n在您進行預訂或與本站聯繫時，請同意提供真實、正確且完整的個人資料，以利後續服務的遂行。本站對於所有訂單保有最終接受與否的權利，並保留隨時修改或變更服務內容之權限。\n\n考量到本站商品多於多個平台同步銷售，網頁上的庫存數據可能存在更新延遲的情形。因此，所有商品的即時庫存狀態、訂購權限以及最終成交售價，皆必須經過本站人員於私訊中正式確認後方為準確。在您獲得私訊確認之前，任何形式的預訂行為均不代表雙方契約已正式成立。此外，本站所販售之商品多為收藏性質，恕不保證所有商品的包裝或外盒完全無損。" },
+                { "slug": "privacy-policy", "title": "隱私權政策", "content": "本站非常重視您的隱私權，我們承諾僅在提供服務所需的必要範圍內，以最嚴謹的態度處理並保護您的個人資料。\n\n當您在本站進行商品預訂或與我們聯繫時，我們會視需求收集包含您的姓名或暱稱、聯絡電話、電子郵件地址以及商品收件資訊。這些資料的收集完全是為了確保各項服務流程能順利運作，其使用目的僅限於訂單處理、物流寄送，以及後續的客服諮詢與售後回覆。我們深知信任的重要性，因此絕不會將您的個人資料出售、交換或出租給任何第三方。\n在保障資料安全的前提下，僅有在進行實體商品配送時，我們才會將必要的收件資訊提供給合作的貨運或快遞業者。身為使用者，您擁有完整的權利，可以隨時與我們聯絡並要求查詢、閱覽、補充、修正或刪除您留存於本站的個人資料。\n\n為了進一步提升您的瀏覽體驗，本站可能會在您的瀏覽器中寫入必要的 Cookie，主要用於記錄網站的偏好設定。您可以根據個人需求在瀏覽器設定中選擇拒絕 Cookie 的存取，但請留意這可能會導致網站的部分功能無法正常運作。若您對於以上條款有任何疑問，或需要進一步的說明，歡迎隨時透過私訊與我們聯絡。\n\n本條款最新修訂日期：2025 年 12 月 27 日" }
+            ];
+
+            pagesData.forEach(p => {
+                const pRef = doc(db, 'pages', p.slug);
+                batch.set(pRef, { title: p.title, content: p.content });
+            });
+
+            // Products Migration
+            const productsData = [
+                { "id": "haku_001", "name": "徐若熙 資格賽 WBCQ 肖像紀念球", "price": "6900", "stock": "1", "category": "WBCQ資格賽", "isFeatured": "TRUE", "tags": "精選", "status": "active", "images": "https://drive.google.com/thumbnail?id=1jX2DAScdH8_eLXNPnXE3wX8KCwOYsQmm&sz=w1000,https://drive.google.com/thumbnail?id=1lX4xS4TBHp1ji6-Zyh8rDZJYtLrXPzpJ&sz=w1000", "layout_type": "vertical", "description": "徐若熙 資格賽 WBCQ 2025 世界棒球經典賽 中華英雄 肖像紀念球" },
+                { "id": "haku_002", "name": "王貞治1973三冠王紀念 日本職棒", "price": "4750", "stock": "1", "category": "日本職棒", "isFeatured": "TRUE", "tags": "精選", "status": "active", "images": "https://drive.google.com/thumbnail?id=1lhPU_N93YOz9lRgGK_ugQjnqvy6PTFr8&sz=w1000,https://drive.google.com/thumbnail?id=1s56umZ52ReED7MTNmL85Bk2vSFVK2vjS&sz=w1000,https://drive.google.com/thumbnail?id=11ZI4UgotmuIeU1-15m2G7arto4pNdSin&sz=w1000", "layout_type": "vertical", "description": "王貞治1973三冠王紀念 日本職棒｜福岡巨蛋王貞治棒球紀念館收藏等級展" },
+                { "id": "haku_003", "name": "徐若熙生涯首勝紀念球", "price": "4800", "stock": "0", "category": "徐若熙", "isFeatured": "TRUE", "tags": "已售出", "status": "active", "images": "https://drive.google.com/thumbnail?id=1Y4JBYypedafFhylf3is3k64-0RKPF7Jb&sz=w1000,https://drive.google.com/thumbnail?id=1INRO-69Ly957pzpsEZvDTPYuhryJ_jzS&sz=w1000", "layout_type": "vertical", "description": "味全龍 徐若熙生涯首勝紀念球" },
+                { "id": "haku_004", "name": "張育成 資格賽 WBCQ 肖像紀念球", "price": "2000", "stock": "1", "category": "WBCQ資格賽", "isFeatured": "TRUE", "tags": "精選", "status": "active", "images": "https://drive.google.com/thumbnail?id=1nxPvgPj1eQrxK_pVswgkxxY5uJlCD8xw&sz=w1000,https://drive.google.com/thumbnail?id=1_TqZw_2fTATOrajU4QY-PNseEmnJtNd4&sz=w1000", "layout_type": "vertical", "description": "張育成 資格賽 WBCQ 肖像紀念球" },
+                { "id": "haku_005", "name": "孫易磊 資格賽 WBCQ 肖像紀念球", "price": "2000", "stock": "1", "category": "WBCQ資格賽", "isFeatured": "TRUE", "tags": "精選", "status": "active", "images": "https://drive.google.com/thumbnail?id=1s2W6twFxIZAgUNlE9L9gchgWqpukL7SA&sz=w1000,https://drive.google.com/thumbnail?id=1Y1HihBfhAP5TgExKTs06c0WXIzBBmKjm&sz=w1000", "layout_type": "vertical", "description": "孫易磊 資格賽 WBCQ 2025 世界棒球經典賽 中華英雄 肖像紀念球" },
+                { "id": "haku_006", "name": "吳念庭 資格賽 WBCQ 肖像紀念球", "price": "2500", "stock": "1", "category": "WBCQ資格賽", "isFeatured": "TRUE", "tags": "精選", "status": "active", "images": "haku_006-0.jpg,haku_006-1.jpg", "layout_type": "vertical", "description": "吳念庭 資格賽 WBCQ 2025 世界棒球經典賽 中華英雄 肖像紀念球" }
+            ];
+
+            productsData.forEach(p => {
+                const pRef = doc(db, 'products', p.id);
+                batch.set(pRef, {
+                    id: p.id,
+                    name: p.name,
+                    price: Number(p.price),
+                    stock: Number(p.stock),
+                    category: p.category,
+                    isFeatured: p.isFeatured === "TRUE",
+                    tags: p.tags,
+                    status: p.status,
+                    images: p.images,
+                    layout: p.layout_type || 'vertical',
+                    desc: p.description,
+                    updatedAt: new Date().toISOString()
+                });
+            });
+
+            await batch.commit();
+
+            // Seed the admin_config for GitHub token
+            await setDoc(doc(db, 'admin_config', 'github'), { token: "" }, { merge: true });
+
+            showDialog('success', '遷移成功', '資料已成功導入 Firebase Firestore (含 Token 資料夾)');
+            fetchProducts();
+        } catch (err) {
+            console.error(err);
+            showDialog('error', '遷移失敗', err.message);
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -291,10 +413,16 @@ export default function AdminApp() {
             // Convert blob URL to File object for saving
             const res = await fetch(croppedImageBlobUrl);
             const blob = await res.blob();
-            const file = new File([blob], `crop-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            const file = new File([blob], `crop-${Date.now()}.webp`, { type: 'image/webp' });
 
-            // Compress the cropped image
-            const options = { maxSizeMB: 0.8, maxWidthOrHeight: 1000, useWebWorker: true, fileType: 'image/jpeg' };
+            // Compress the cropped image - Target 1000px WebP
+            const options = {
+                maxSizeMB: 0.6,
+                maxWidthOrHeight: 1000,
+                useWebWorker: true,
+                fileType: 'image/webp',
+                initialQuality: 0.85
+            };
             const compressed = await imageCompression(file, options);
             const previewUrl = URL.createObjectURL(compressed);
 
@@ -353,40 +481,48 @@ export default function AdminApp() {
 
     // --- CRUD Operations ---
     const handleEdit = (product) => {
-        // Prepare data structure
         setEditingProduct({
             ...product,
-            // Map images to consistent structure
             rawImagesData: product.images.map(url => ({ url, isNew: false }))
         });
+        setActiveTab('edit');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleCreateNew = () => {
-        const now = new Date();
-        const formattedDate =
-            now.getFullYear().toString().slice(-2) +
-            (now.getMonth() + 1).toString().padStart(2, '0') +
-            now.getDate().toString().padStart(2, '0') +
-            now.getHours().toString().padStart(2, '0') +
-            now.getMinutes().toString().padStart(2, '0') +
-            now.getSeconds().toString().padStart(2, '0');
+        let nextId = "haku_001";
+        if (products.length > 0) {
+            const hakuIds = products
+                .map(p => p.id)
+                .filter(id => id && id.startsWith('haku_'))
+                .map(id => {
+                    const parts = id.split('_');
+                    return parts.length > 1 ? parseInt(parts[1]) : NaN;
+                })
+                .filter(num => !isNaN(num));
 
-        setEditingProduct({
-            id: `haku_${formattedDate}`,
+            if (hakuIds.length > 0) {
+                const maxNum = Math.max(...hakuIds);
+                nextId = `haku_${String(maxNum + 1).padStart(3, '0')}`;
+            }
+        }
+
+        const newProduct = {
+            id: nextId,
             name: '',
             price: 0,
-            stock: 0,
-            category: '',
+            stock: 1,
+            category: '棒球收藏',
             isFeatured: false,
-            tags: '',
+            tags: '精選',
             status: 'active',
             images: [],
-            rawImagesData: [],
             layout: 'vertical',
-            desc: '',
-            updatedAt: ''
-        });
+            desc: ''
+        };
+        setEditingProduct(newProduct);
+        setActiveTab('edit');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleDelete = async () => {
@@ -402,11 +538,8 @@ export default function AdminApp() {
         showDialog('success', '刪除中', '正在移除商品資料...');
 
         try {
-            await fetch(GAS_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'delete', id: editingProduct.id })
-            });
+            const pRef = doc(db, 'products', editingProduct.id);
+            await deleteDoc(pRef);
 
             setProducts(products.filter(p => p.id !== editingProduct.id));
             setEditingProduct(null);
@@ -429,44 +562,30 @@ export default function AdminApp() {
         const uploadedFileNames = [];
         const newLocalCache = { ...localCache };
 
-        // 1. Data Prep & Image Upload Phase
+        // 1. Parallel Image Upload Phase
         try {
-            for (let i = 0; i < finalImages.length; i++) {
-                const item = finalImages[i];
-                const expectedFileName = `${id}-${i}.jpg`;
+            const uploadPromises = finalImages.map(async (item, i) => {
+                const expectedFileName = `${id}-${i}.webp`;
 
-                let blobToUpload = null;
-                let previewToCache = item.preview;
-
-                // Case A: New image from cropper
                 if (item.isNew && item.file) {
-                    blobToUpload = item.file;
-                }
-                // Case B: Existing image but position/index changed (Reordered)
-                else if (item.url && !item.url.includes(expectedFileName)) {
-                    // It was moved, need to re-upload to the new index filename
-                    const res = await fetch(item.url);
-                    blobToUpload = await res.blob();
-                    previewToCache = item.url;
-                }
-
-                if (blobToUpload) {
-                    const content = await toBase64(blobToUpload);
+                    const content = await toBase64(item.file);
                     const base64 = content.split(',')[1];
                     await uploadToGitHub(expectedFileName, base64);
-
-                    // Update Local Cache (for instant preview)
-                    newLocalCache[expectedFileName] = previewToCache;
-                    try {
-                        localStorage.setItem(`haku_cache_${expectedFileName}`, JSON.stringify({
-                            data: previewToCache,
-                            timestamp: Date.now()
-                        }));
-                    } catch (e) { }
+                    newLocalCache[expectedFileName] = item.preview;
+                } else if (item.url && !item.url.includes(expectedFileName)) {
+                    // Logic for reordering/moving existing images
+                    const res = await fetch(item.url);
+                    const blob = await res.blob();
+                    const content = await toBase64(blob);
+                    const base64 = content.split(',')[1];
+                    await uploadToGitHub(expectedFileName, base64);
+                    newLocalCache[expectedFileName] = item.url;
                 }
 
                 uploadedFileNames.push(expectedFileName);
-            }
+            });
+
+            await Promise.all(uploadPromises);
             setLocalCache(newLocalCache);
         } catch (err) {
             console.error(err);
@@ -475,22 +594,29 @@ export default function AdminApp() {
             return;
         }
 
-        // 2. Data Save Phase - Save to Google Sheets
+        // 2. Data Save Phase - Save to Firestore
         try {
             const payload = {
-                ...editingProduct,
-                images: uploadedFileNames.join(','),
-                rawImagesData: undefined
+                id,
+                name: editingProduct.name,
+                price: Number(editingProduct.price),
+                stock: Number(editingProduct.stock),
+                category: editingProduct.category,
+                isFeatured: editingProduct.isFeatured,
+                tags: editingProduct.tags,
+                status: editingProduct.status,
+                images: uploadedFileNames.filter(Boolean).join(','),
+                layout: editingProduct.layout || 'vertical',
+                desc: editingProduct.desc,
+                updatedAt: new Date().toISOString()
             };
 
-            await fetch(GAS_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload)
-            });
+            const pRef = doc(db, 'products', id);
+            await setDoc(pRef, payload);
 
-            const updatedDocs = products.map(p => p.id === id ? { ...payload, images: uploadedFileNames } : p);
-            if (!products.find(p => p.id === id)) updatedDocs.push({ ...payload, images: uploadedFileNames });
+            const productForList = { ...payload, images: uploadedFileNames };
+            const updatedDocs = products.map(p => p.id === id ? productForList : p);
+            if (!products.find(p => p.id === id)) updatedDocs.push(productForList);
             setProducts(updatedDocs);
 
             showDialog('success', '存檔完成', `商品 [${id}] 已成功更新`);
@@ -572,32 +698,19 @@ export default function AdminApp() {
                 <div className="w-full max-w-sm bg-[var(--haku-paper)] border border-[var(--haku-ink)]/10 p-1">
                     <div className="border border-[var(--haku-ink)]/10">
                         <div className="p-16 text-center bg-[var(--haku-ink)] text-[var(--haku-paper)]">
-                            <h1 className="text-6xl font-Montserrat font-black tracking-tighter mb-4">HAKU</h1>
+                            <img src="/logotype-light.png" alt="HAKU" className="h-12 mx-auto mb-6" />
                             <div className="h-[1px] w-12 bg-current mx-auto opacity-30 mb-4"></div>
-                            <p className="text-[9px] tracking-[0.6em] opacity-50 uppercase font-bold">內部管理網路</p>
+                            <p className="text-[9px] tracking-[0.6em] opacity-50 uppercase font-bold">管理員驗證</p>
                         </div>
-                        <form onSubmit={handleLogin} className="p-14 space-y-12">
-                            <div className="space-y-4">
-                                <label className="text-[10px] font-Montserrat font-black tracking-[0.3em] opacity-40 uppercase">管理者金鑰</label>
-                                <div className="relative group">
-                                    <Lock className="absolute left-0 top-1/2 -translate-y-1/2 opacity-20 group-focus-within:opacity-100 transition-opacity" size={16} />
-                                    <input
-                                        type="password" required placeholder="••••••••"
-                                        className="w-full pl-8 py-4 bg-transparent border-b border-[var(--haku-ink)]/20 focus:border-[var(--haku-ink)] focus:outline-none text-lg font-black tracking-[0.4em] transition-all"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        autoFocus
-                                    />
-                                </div>
-                            </div>
+                        <div className="p-14 space-y-12">
                             <button
-                                type="submit"
-                                className="w-full py-5 text-[10px] font-Montserrat font-black tracking-[0.5em] bg-[var(--haku-ink)] text-[var(--haku-paper)] transition-all hover:opacity-90 active:scale-[0.98] shadow-xl"
+                                onClick={handleGoogleLogin}
+                                className="w-full py-5 text-[10px] font-Montserrat font-black tracking-[0.5em] bg-[var(--haku-ink)] text-[var(--haku-paper)] transition-all hover:opacity-90 active:scale-[0.98] shadow-xl flex items-center justify-center gap-3"
                             >
-                                登入系統
+                                <User size={16} /> GOOGLE 登入
                             </button>
                             <p className="text-center text-[8px] font-black opacity-20 tracking-widest uppercase">僅供授權人員使用</p>
-                        </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -606,308 +719,243 @@ export default function AdminApp() {
 
 
 
+    const totalPages = Math.ceil(products.length / itemsPerPage);
+    const paginatedProducts = products.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    const allCategories = [...new Set([...INITIAL_CATEGORIES, ...products.map(p => p.category)])].filter(Boolean).sort();
+
     return (
-        <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: COLORS.paper }}>
+        <div className="min-h-screen flex flex-col bg-[var(--haku-paper)] selection:bg-[var(--haku-ink)] selection:text-[var(--haku-paper)]">
             <FontStyles />
             <LoadingOverlay isProcessing={isProcessing} />
             <StatusDialog dialog={dialog} />
 
             <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept="image/*" />
 
-            {/* Global Header */}
-            <header className="sticky top-0 z-50 bg-[var(--haku-paper)] border-b border-[var(--haku-ink)]/10 px-6 md:px-12 py-5 flex items-center justify-between shadow-sm">
+            {/* Sticky Navigation Area */}
+            <header className="sticky top-0 z-50 bg-[var(--haku-paper)] border-b border-[var(--haku-ink)]/10 px-6 md:px-12 py-6 flex items-center justify-between">
                 <div className="flex items-center gap-6">
-                    <h1 className="font-Montserrat font-black text-2xl md:text-3xl tracking-tighter text-[var(--haku-ink)]">HAKU</h1>
-                    <div className="h-4 w-[1px] bg-[var(--haku-ink)]/10 hidden md:block"></div>
-                    <p className="text-[9px] font-black opacity-20 tracking-[0.4em] uppercase hidden md:block">維護管理系統</p>
+                    <img src="/logotype-dark.png" alt="HAKU" className="h-6 md:h-8" />
+                    <div className="h-4 w-[1px] bg-[var(--haku-ink)]/20 hidden md:block"></div>
                 </div>
 
                 <div className="flex items-center gap-2 md:gap-4">
-                    <a href="/" className="p-3 hover:bg-[var(--haku-ink)]/5 transition-all active:scale-90 group relative" title="使用者頁面">
+                    <a href="/" target="_blank" className="p-3 hover:bg-[var(--haku-ink)]/5 transition-all rounded-full group" title="前往前台首頁">
                         <User size={20} className="text-[var(--haku-ink)] opacity-40 group-hover:opacity-100 transition-opacity" />
                     </a>
-                    <button
-                        onClick={() => { setIsLoggedIn(false); sessionStorage.clear(); }}
-                        className="p-3 hover:bg-[var(--haku-ink)]/5 transition-all active:scale-90 group relative"
-                        title="登出系統"
-                    >
+                    <button onClick={handleLogout} className="p-3 hover:bg-[var(--haku-ink)]/5 transition-all rounded-full group" title="登出系統">
                         <LogOut size={20} className="text-[var(--haku-ink)] opacity-40 group-hover:opacity-100 transition-opacity" />
                     </button>
                 </div>
             </header>
 
-            {/* Main Workspace */}
-            <main className="flex-1 overflow-y-auto w-full">
-                <div className="p-6 md:p-16 max-w-7xl mx-auto pb-32">
-                    <header className="flex flex-col md:flex-row md:items-center justify-end mb-12 md:mb-20 gap-8">
-                        {/* Title removed as requested */}
-                        <button
-                            onClick={handleCreateNew}
-                            disabled={!!editingProduct}
-                            className={`group flex items-center justify-center gap-4 px-10 py-5 bg-[var(--haku-ink)] text-[var(--haku-paper)] font-Montserrat font-black text-[12px] tracking-[0.3em] transition-all w-full md:w-auto uppercase ${editingProduct ? 'opacity-20 cursor-not-allowed grayscale' : 'hover:shadow-[0_20px_40px_rgba(62,39,35,0.2)] active:scale-95'}`}
-                        >
-                            <Plus size={18} className={`transition-transform ${!editingProduct ? 'group-hover:rotate-90' : ''}`} />
-                            新增品項
-                        </button>
-                    </header>
+            {/* Sub-menu Tabs */}
+            <div className="bg-[var(--haku-paper)] border-b border-[var(--haku-ink)]/5 px-6 md:px-12">
+                <div className="max-w-7xl mx-auto flex gap-8 md:gap-12">
+                    <button
+                        onClick={() => { setActiveTab('list'); setEditingProduct(null); }}
+                        className={`py-6 text-[11px] font-Montserrat font-black uppercase tracking-[0.3em] transition-all relative ${activeTab === 'list' ? 'text-[var(--haku-ink)]' : 'text-[var(--haku-ink)]/30 hover:text-[var(--haku-ink)]'}`}
+                    >
+                        商品一覽
+                        {activeTab === 'list' && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[var(--haku-ink)]"></div>}
+                    </button>
+                    <button
+                        onClick={handleCreateNew}
+                        className={`py-6 text-[11px] font-Montserrat font-black uppercase tracking-[0.3em] transition-all relative ${activeTab === 'edit' && !products.some(p => p.id === editingProduct?.id) ? 'text-[var(--haku-ink)]' : 'text-[var(--haku-ink)]/30 hover:text-[var(--haku-ink)]'}`}
+                    >
+                        新增商品
+                        {activeTab === 'edit' && !products.some(p => p.id === editingProduct?.id) && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[var(--haku-ink)]"></div>}
+                    </button>
+                </div>
+            </div>
 
-                    {/* Editor Modal */}
-                    {editingProduct && (
-                        <div className="mb-12 md:mb-24 bg-[var(--haku-paper)] p-8 md:p-16 border border-[var(--haku-ink)]/20 shadow-[-20px_20px_60px_rgba(62,39,35,0.05)] relative animate-in fade-in slide-in-from-bottom-8 duration-700">
-                            {/* Modal Header for better spacing and clarity */}
-                            <div className="flex justify-between items-center mb-10 md:mb-16 border-b border-[var(--haku-ink)]/10 pb-6">
-                                <div className="flex items-center gap-4">
-                                    <Package size={20} className="text-[var(--haku-ink)] opacity-40" />
-                                    <h2 className="text-[12px] font-Montserrat font-black uppercase tracking-[0.4em] text-[var(--haku-ink)]">
-                                        {products.some(p => p.id === editingProduct.id) ? `編輯商品 [${editingProduct.id}]` : '新增商品內容'}
-                                    </h2>
-                                </div>
-                                <button onClick={() => setEditingProduct(null)} className="p-2 opacity-40 hover:opacity-100 transition-all active:scale-95 group" title="關閉編輯器">
-                                    <X size={28} className="text-[var(--haku-ink)] transition-transform group-hover:rotate-90" />
+            {/* Content Scroller */}
+            <main className="flex-1 overflow-x-hidden">
+                <div className="p-6 md:p-16 max-w-7xl mx-auto pb-40">
+
+                    {/* VIEW: Editor */}
+                    {activeTab === 'edit' && editingProduct && (
+                        <div className="animate-in fade-in slide-in-from-bottom-6 duration-500">
+                            <div className="mb-12 flex items-center justify-between border-b border-[var(--haku-ink)]/10 pb-6 whitespace-nowrap overflow-hidden">
+                                <h2 className="text-[14px] font-Montserrat font-black uppercase tracking-[0.3em] text-[var(--haku-ink)] truncate pr-4">
+                                    {products.some(p => p.id === editingProduct.id) ? `EDIT / ${editingProduct.id}` : 'CREATE NEW ITEM'}
+                                </h2>
+                                <button onClick={() => { setActiveTab('list'); setEditingProduct(null); }} className="text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-all flex items-center gap-2">
+                                    <X size={14} /> 取消編輯
                                 </button>
                             </div>
 
-                            <form onSubmit={handleSave} className="space-y-12 md:space-y-20">
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 md:gap-20">
+                            <form onSubmit={handleSave} className="space-y-16">
+                                {/* Grid Layout for Inputs */}
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-24">
 
-                                    {/* Image Management Section */}
-                                    <div className="lg:col-span-12 space-y-6 md:space-y-10">
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6">
+                                    {/* Left Side: Media */}
+                                    <div className="lg:col-span-12 space-y-8">
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
                                             {(editingProduct.rawImagesData || editingProduct.images || []).map((imgData, idx) => {
                                                 const src = imgData.preview || getProductImage(imgData.url || imgData);
                                                 return (
-                                                    <div key={idx} className="group relative aspect-square border border-[var(--haku-ink)]/10 overflow-hidden bg-[var(--placeholder-bg)] shadow-sm">
-                                                        <img src={src} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={`Entry ${idx}`} />
-                                                        {/* Overlay Controls */}
-                                                        <div className="absolute inset-0 bg-[var(--haku-ink)]/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-4 p-4">
+                                                    <div key={idx} className="aspect-square border border-[var(--haku-ink)]/10 relative overflow-hidden group bg-[var(--placeholder-bg)]">
+                                                        <img src={src} className="w-full h-full object-cover" alt="" />
+                                                        <div className="absolute inset-0 bg-[var(--haku-ink)]/90 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-3 gap-2">
                                                             <div className="flex gap-2">
-                                                                <button type="button" onClick={() => moveImage(idx, -1)} className="p-2 bg-[var(--haku-paper)] text-[var(--haku-ink)] active:scale-75 transition-transform"><ArrowLeft size={16} /></button>
-                                                                <button type="button" onClick={() => moveImage(idx, 1)} className="p-2 bg-[var(--haku-paper)] text-[var(--haku-ink)] active:scale-75 transition-transform"><ArrowRight size={16} /></button>
+                                                                <button type="button" onClick={() => moveImage(idx, -1)} className="p-2 bg-[var(--haku-paper)] text-[var(--haku-ink)] active:scale-75"><ArrowLeft size={14} /></button>
+                                                                <button type="button" onClick={() => moveImage(idx, 1)} className="p-2 bg-[var(--haku-paper)] text-[var(--haku-ink)] active:scale-75"><ArrowRight size={14} /></button>
                                                             </div>
-                                                            <button type="button" onClick={() => removeImage(idx)} className="w-full py-2 bg-red-900 text-[var(--haku-paper)] text-[9px] font-Montserrat font-black tracking-widest uppercase active:scale-95 transition-transform flex items-center justify-center gap-2">
-                                                                <Trash2 size={12} /> 移除圖片
-                                                            </button>
+                                                            <button type="button" onClick={() => removeImage(idx)} className="text-[8px] font-black text-white/60 hover:text-white uppercase tracking-widest mt-2">REMOVE</button>
                                                         </div>
-                                                        {/* Index Badge */}
-                                                        <div className="absolute top-0 left-0 px-3 py-1 bg-[var(--haku-ink)] text-[var(--haku-paper)] text-[10px] font-Montserrat font-black">{idx + 1}</div>
+                                                        <div className="absolute top-0 left-0 px-2 py-0.5 bg-[var(--haku-ink)] text-[var(--haku-paper)] text-xs font-black">{idx + 1}</div>
                                                     </div>
                                                 );
                                             })}
-                                            {(!editingProduct.images || editingProduct.images.length === 0) && (
-                                                <div className="col-span-full py-24 border border-dashed border-[var(--haku-ink)]/20 flex flex-col items-center justify-center opacity-30" >
-                                                    <ImageIcon size={40} className="mb-4 text-[var(--haku-ink)]" />
-                                                    <span className="text-[10px] font-Montserrat font-black tracking-[0.4em] uppercase text-[var(--haku-ink)]">尚無媒體檔案</span>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Full-width Upload Button below the grid */}
-                                        <button
-                                            type="button" onClick={triggerFileUpload}
-                                            className="w-full py-5 border border-[var(--haku-ink)]/20 text-[10px] font-Montserrat font-black tracking-[0.3em] uppercase flex items-center justify-center gap-4 bg-transparent text-[var(--haku-ink)] hover:bg-[var(--haku-ink)] hover:text-[var(--haku-paper)] hover:border-[var(--haku-ink)] transition-all active:scale-[0.98]"
-                                        >
-                                            <Upload size={16} /> 上傳檔案
-                                        </button>
-                                    </div>
-
-                                    {/* Text Fields */}
-                                    <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-14">
-                                        <div className="space-y-4">
-                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-[0.3em] opacity-40">商品編號</label>
-                                            <input type="text" required className="w-full p-0 py-3 bg-transparent border-b border-[var(--haku-ink)]/10 text-xl font-black focus:outline-none focus:border-[var(--haku-ink)] transition-all placeholder:opacity-10" placeholder="例如：haku_001" value={editingProduct.id} onChange={e => setEditingProduct({ ...editingProduct, id: e.target.value })} />
-                                        </div>
-                                        <div className="space-y-4">
-                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-[0.3em] opacity-40">商品名稱</label>
-                                            <input type="text" required className="w-full p-0 py-3 bg-transparent border-b border-[var(--haku-ink)]/10 text-xl font-bold focus:outline-none focus:border-[var(--haku-ink)] transition-all placeholder:opacity-10" placeholder="輸入商品名稱" value={editingProduct.name} onChange={e => setEditingProduct({ ...editingProduct, name: e.target.value })} />
-                                        </div>
-                                        <div className="space-y-4">
-                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-[0.3em] opacity-40">商品分類</label>
-                                            <input list="cat-list" type="text" className="w-full p-0 py-3 bg-transparent border-b border-[var(--haku-ink)]/10 text-xl font-bold focus:outline-none focus:border-[var(--haku-ink)] transition-all" value={editingProduct.category} onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value })} />
-                                            <datalist id="cat-list">
-                                                {INITIAL_CATEGORIES.map(c => <option key={c} value={c} />)}
-                                            </datalist>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-[0.3em] opacity-40">售價 (TWD)</label>
-                                            <div className="relative">
-                                                <span className="absolute left-0 top-1/2 -translate-y-1/2 text-xl font-Montserrat font-black opacity-20">$</span>
-                                                <input type="number" className="w-full pl-6 py-3 bg-transparent border-b border-[var(--haku-ink)]/10 text-xl font-Montserrat font-black focus:outline-none focus:border-[var(--haku-ink)] transition-all" value={editingProduct.price} onChange={e => setEditingProduct({ ...editingProduct, price: parseInt(e.target.value) })} />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-[0.3em] opacity-40">在庫數量</label>
-                                            <input type="number" className="w-full p-0 py-3 bg-transparent border-b border-[var(--haku-ink)]/10 text-xl font-Montserrat font-black focus:outline-none focus:border-[var(--haku-ink)] transition-all" value={editingProduct.stock} onChange={e => setEditingProduct({ ...editingProduct, stock: parseInt(e.target.value) })} />
-                                        </div>
-                                        <div className="space-y-4">
-                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-[0.3em] opacity-40">檢索標籤 (以逗號分隔)</label>
-                                            <input type="text" className="w-full p-0 py-3 bg-transparent border-b border-[var(--haku-ink)]/10 text-xl font-bold focus:outline-none focus:border-[var(--haku-ink)] transition-all placeholder:opacity-10" placeholder="標籤1, 標籤2..." value={editingProduct.tags} onChange={e => setEditingProduct({ ...editingProduct, tags: e.target.value })} />
+                                            <button type="button" onClick={triggerFileUpload} className="aspect-square border-2 border-dashed border-[var(--haku-ink)]/10 hover:border-[var(--haku-ink)]/30 hover:bg-[var(--haku-ink)]/5 flex flex-col items-center justify-center gap-3 transition-all">
+                                                <Plus size={24} className="opacity-20" />
+                                                <span className="text-[9px] font-black opacity-30 tracking-widest uppercase">UPLOAD</span>
+                                            </button>
                                         </div>
                                     </div>
 
-                                    <div className="lg:col-span-4 space-y-10 md:space-y-12">
-                                        <div className="space-y-4">
-                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-[0.3em] opacity-40">上架狀態</label>
-                                            <select className="w-full py-3 bg-transparent border-b border-[var(--haku-ink)]/10 text-sm font-Montserrat font-black focus:outline-none cursor-pointer uppercase" value={editingProduct.status} onChange={e => setEditingProduct({ ...editingProduct, status: e.target.value })}>
+                                    {/* Middle: Details */}
+                                    <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-10">
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-widest opacity-40">編號</label>
+                                            <input type="text" readOnly className="w-full p-4 bg-[var(--haku-ink)]/5 border-none text-xl font-black focus:outline-none opacity-50 cursor-not-allowed" value={editingProduct.id} />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-widest opacity-40">名稱</label>
+                                            <input type="text" required className="w-full p-4 bg-white/50 border-none text-xl font-bold focus:bg-white focus:ring-1 focus:ring-[var(--haku-ink)]/10 transition-all" value={editingProduct.name} onChange={e => setEditingProduct({ ...editingProduct, name: e.target.value })} />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-widest opacity-40">分類</label>
+                                            <input list="cat-list" type="text" placeholder="選擇或輸入分類..." className="w-full p-4 bg-white/50 border-none text-lg font-bold focus:bg-white" value={editingProduct.category} onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value })} />
+                                            <datalist id="cat-list">{allCategories.map(c => <option key={c} value={c} />)}</datalist>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-widest opacity-40">售價</label>
+                                            <input type="number" className="w-full p-4 bg-white/50 border-none text-xl font-Montserrat font-black focus:bg-white" value={editingProduct.price} onChange={e => setEditingProduct({ ...editingProduct, price: parseInt(e.target.value) })} />
+                                        </div>
+                                    </div>
+
+                                    {/* Right: Settings */}
+                                    <div className="lg:col-span-4 space-y-10">
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-widest opacity-40">庫存</label>
+                                            <input type="number" className="w-full p-4 bg-white/50 border-none text-xl font-Montserrat font-black focus:bg-white" value={editingProduct.stock} onChange={e => setEditingProduct({ ...editingProduct, stock: parseInt(e.target.value) })} />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-widest opacity-40">狀態</label>
+                                            <select className="w-full p-4 bg-white/50 border-none font-Montserrat font-black uppercase text-sm" value={editingProduct.status} onChange={e => setEditingProduct({ ...editingProduct, status: e.target.value })}>
                                                 {STATUS_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                                             </select>
                                         </div>
-                                        <div className="space-y-4">
-                                            <label className="text-[10px] font-Montserrat font-black uppercase tracking-[0.3em] opacity-40">版型配置</label>
-                                            <select className="w-full py-3 bg-transparent border-b border-[var(--haku-ink)]/10 text-sm font-Montserrat font-black focus:outline-none cursor-pointer uppercase" value={editingProduct.layout} onChange={e => setEditingProduct({ ...editingProduct, layout: e.target.value })}>
-                                                {LAYOUT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                                            </select>
-                                        </div>
-
-                                        <div className="pt-4">
-                                            <div
-                                                onClick={() => setEditingProduct({ ...editingProduct, isFeatured: !editingProduct.isFeatured })}
-                                                className="flex items-center gap-5 cursor-pointer group select-none active:scale-95 transition-transform"
-                                            >
-                                                <div className={`w-10 h-10 border transition-all flex items-center justify-center ${editingProduct.isFeatured ? 'bg-[var(--haku-ink)] border-[var(--haku-ink)] shadow-lg' : 'border-[var(--haku-ink)]/10'}`}>
-                                                    <Star size={20} className={editingProduct.isFeatured ? 'text-[var(--haku-paper)] fill-current' : 'opacity-10'} />
-                                                </div>
-                                                <div>
-                                                    <span className="text-[10px] font-Montserrat font-black uppercase tracking-[0.3em] text-[var(--haku-ink)]">設為精選推薦商品</span>
-                                                </div>
+                                        <div className="flex items-center gap-4 py-4 cursor-pointer select-none" onClick={() => setEditingProduct({ ...editingProduct, isFeatured: !editingProduct.isFeatured })}>
+                                            <div className={`w-8 h-8 flex items-center justify-center transition-all ${editingProduct.isFeatured ? 'bg-[var(--haku-ink)] text-white' : 'bg-white border border-[var(--haku-ink)]/10'}`}>
+                                                <Star size={14} className={editingProduct.isFeatured ? 'fill-current' : 'opacity-20'} />
                                             </div>
+                                            <span className="text-[10px] font-black uppercase tracking-widest">設為精選</span>
                                         </div>
                                     </div>
 
-                                    <div className="lg:col-span-12 space-y-6">
-                                        <label className="text-[10px] font-Montserrat font-black uppercase tracking-[0.3em] opacity-40">商品詳細描述</label>
-                                        <textarea className="w-full p-8 bg-[var(--placeholder-bg)]/20 border border-[var(--haku-ink)]/10 focus:outline-none focus:bg-white focus:border-[var(--haku-ink)]/30 transition-all min-h-[220px] text-sm leading-relaxed" value={editingProduct.desc} onChange={e => setEditingProduct({ ...editingProduct, desc: e.target.value })} />
+                                    <div className="lg:col-span-12 space-y-3">
+                                        <label className="text-[10px] font-Montserrat font-black uppercase tracking-widest opacity-40">說明</label>
+                                        <textarea className="w-full p-6 bg-white border-none focus:ring-1 focus:ring-[var(--haku-ink)]/10 min-h-[200px] text-sm leading-relaxed" value={editingProduct.desc} onChange={e => setEditingProduct({ ...editingProduct, desc: e.target.value })} />
                                     </div>
                                 </div>
 
-                                <div className="flex flex-col-reverse md:flex-row justify-between gap-6 md:gap-10 pt-16 border-t border-[var(--haku-ink)]/10">
-                                    {/* Delete Button - only for existing products */}
-                                    {products.some(p => p.id === editingProduct.id) && (
-                                        <button type="button" onClick={handleDelete} className="w-full md:w-auto px-8 py-5 text-[10px] font-Montserrat font-black tracking-[0.4em] uppercase border border-[var(--haku-ink)]/20 text-[var(--haku-ink)]/60 hover:border-[var(--haku-ink)] hover:text-[var(--haku-ink)] transition-all active:scale-95 flex items-center justify-center gap-3">
-                                            <Trash2 size={14} />
-                                            刪除商品
-                                        </button>
-                                    )}
-                                    <div className="flex flex-col-reverse md:flex-row gap-6 md:gap-10 md:ml-auto">
-                                        <button type="button" onClick={() => setEditingProduct(null)} className="w-full md:w-auto px-12 py-5 text-[10px] font-Montserrat font-black tracking-[0.4em] uppercase border border-[var(--haku-ink)]/10 hover:border-[var(--haku-ink)] transition-all active:scale-95">捨棄變更</button>
-                                        <button type="submit" className="w-full md:w-auto px-16 py-5 text-[10px] font-Montserrat font-black tracking-[0.4em] uppercase bg-[var(--haku-ink)] text-[var(--haku-paper)] transition-all hover:shadow-2xl active:scale-95">核對並儲存</button>
+                                <div className="flex flex-col-reverse md:flex-row gap-6 justify-between pt-12 border-t border-[var(--haku-ink)]/10">
+                                    <div className="flex gap-4">
+                                        {products.some(p => p.id === editingProduct.id) && (
+                                            <button type="button" onClick={handleDelete} className="p-5 text-[10px] font-black uppercase tracking-widest bg-white border border-[var(--haku-ink)]/10 hover:border-red-900 overflow-hidden group relative">
+                                                <span className="group-hover:translate-x-full inline-block transition-transform duration-300">刪除商品</span>
+                                                <div className="absolute inset-0 bg-red-900 text-white flex items-center justify-center -translate-x-full group-hover:translate-x-0 transition-transform duration-300">SURE?</div>
+                                            </button>
+                                        )}
+                                        <button type="button" onClick={() => { setActiveTab('list'); setEditingProduct(null); }} className="px-10 py-5 text-[10px] font-black uppercase tracking-widest border border-[var(--haku-ink)]/10 hover:bg-[var(--haku-ink)] hover:text-white transition-all">放棄</button>
                                     </div>
+                                    <button type="submit" className="px-20 py-5 text-[10px] font-black uppercase tracking-[0.4em] bg-[var(--haku-ink)] text-[var(--haku-paper)] shadow-xl hover:-translate-y-1 active:translate-y-0 transition-all">核對並儲存資料</button>
                                 </div>
                             </form>
                         </div>
                     )}
 
-                    {/* Data Grid */}
-                    {/* Mobile Card View */}
-                    <div className="md:hidden space-y-6 mb-32">
-                        {isLoading ? (
-                            <div className="text-center py-20 opacity-20 text-[10px] font-Montserrat font-black tracking-[0.5em] uppercase italic">同步中...</div>
-                        ) : (
-                            products.map(product => {
-                                const statusLabel = STATUS_OPTIONS.find(o => o.value === product.status)?.label || product.status;
-                                return (
-                                    <div key={product.id} className="bg-[var(--haku-paper)] border border-[var(--haku-ink)]/10 shadow-sm p-6 space-y-6 relative overflow-hidden group">
-                                        {product.isFeatured && <div className="absolute top-0 right-0 px-3 py-1 bg-[var(--haku-ink)] text-[var(--haku-paper)] text-[8px] font-black uppercase tracking-widest z-10">精選推薦</div>}
-                                        <div className="flex gap-6">
-                                            <div className="w-24 h-24 bg-[var(--placeholder-bg)] flex-shrink-0 border border-[var(--haku-ink)]/5 overflow-hidden aspect-square">
-                                                {product.images && product.images.length > 0 ? <img src={getProductImage(product.images[0])} className="w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all duration-700" /> : <ImageIcon className="w-full h-full p-6 opacity-10 text-[var(--haku-ink)]" />}
-                                            </div>
-                                            <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                <div className="font-bold text-base tracking-tight mb-1 truncate text-[var(--haku-ink)]">{product.name}</div>
-                                                <div className="text-[9px] font-Montserrat font-black opacity-30 tracking-[0.2em] uppercase mb-3">{product.id}</div>
-                                                <div className="flex flex-wrap gap-2">
-                                                    <span className="text-[8px] px-2 py-0.5 border border-[var(--haku-ink)]/20 font-black uppercase tracking-wider">{product.category}</span>
-                                                    <span className={`text-[8px] px-2 py-0.5 border border-[var(--haku-ink)]/20 font-black uppercase tracking-wider ${product.status === 'active' ? 'bg-[var(--haku-ink)] text-[var(--haku-paper)]' : 'opacity-30'}`}>{statusLabel}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center justify-between pt-6 border-t border-[var(--haku-ink)]/5">
-                                            <div className="text-xl font-Montserrat font-black text-[var(--haku-ink)]">${product.price.toLocaleString()}</div>
-                                            <div className="flex items-center gap-4">
-                                                <div className="text-[9px] font-Montserrat font-black opacity-30 uppercase tracking-widest">在庫: {product.stock}</div>
-                                                <button
-                                                    onClick={() => handleEdit(product)}
-                                                    className="w-12 h-12 flex items-center justify-center border border-[var(--haku-ink)] text-[var(--haku-ink)] hover:bg-[var(--haku-ink)] hover:text-[var(--haku-paper)] transition-all active:scale-75"
-                                                >
-                                                    <Edit3 size={18} />
-                                                </button>
-                                            </div>
-                                        </div>
+                    {/* VIEW: Product List */}
+                    {activeTab === 'list' && (
+                        <div className="animate-in fade-in duration-500">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16 border-b border-[var(--haku-ink)]/10 pb-10">
+                                <div>
+                                    <h2 className="text-[16px] font-Montserrat font-black uppercase tracking-[0.5em] text-[var(--haku-ink)] mb-2">PRODUCT LIST</h2>
+                                    <p className="text-[9px] font-black opacity-30 uppercase tracking-[0.2em]">目前共有 {products.length} 項品項</p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex gap-1">
+                                        {[...Array(totalPages)].map((_, i) => (
+                                            <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-10 h-10 flex items-center justify-center font-Montserrat font-black text-xs border transition-all ${currentPage === i + 1 ? 'bg-[var(--haku-ink)] border-[var(--haku-ink)] text-white' : 'bg-white border-[var(--haku-ink)]/10 hover:bg-[var(--haku-ink)]/10'}`}>
+                                                {String(i + 1).padStart(2, '0')}
+                                            </button>
+                                        ))}
                                     </div>
-                                );
-                            })
-                        )}
-                    </div>
+                                </div>
+                            </div>
 
-                    {/* Desktop Table View */}
-                    <div className="hidden md:block bg-[var(--haku-paper)] border border-[var(--haku-ink)]/10 shadow-[-40px_40px_100px_rgba(62,39,35,0.03)] group transition-all">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="text-[10px] font-Montserrat font-black uppercase tracking-[0.4em] text-[var(--haku-ink)] border-b border-[var(--haku-ink)]/10">
-                                    <th className="px-10 py-10 font-black">選物目標</th>
-                                    <th className="px-10 py-10 font-black">分類區域</th>
-                                    <th className="px-10 py-10 font-black text-center">在庫量</th>
-                                    <th className="px-10 py-10 font-black">建議售價</th>
-                                    <th className="px-10 py-10 font-black">上架狀態</th>
-                                    <th className="px-10 py-10 font-black text-right opacity-30">操作控管</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--haku-ink)]/5">
-                                {isLoading ? (
-                                    <tr><td colSpan={6} className="py-32 text-center opacity-20 text-[10px] font-Montserrat font-black tracking-[0.5em] uppercase italic">資料同步傳輸中...</td></tr>
-                                ) : products.map(product => {
-                                    const statusLabel = STATUS_OPTIONS.find(o => o.value === product.status)?.label || product.status;
-                                    return (
-                                        <tr key={product.id} className="hover:bg-[var(--haku-ink)]/[0.02] transition-colors group/row">
-                                            <td className="px-10 py-10">
-                                                <div className="flex items-center gap-8">
-                                                    <div className="w-20 h-20 bg-[var(--placeholder-bg)] flex-shrink-0 border border-[var(--haku-ink)]/5 overflow-hidden relative shadow-sm aspect-square">
-                                                        {product.images && product.images.length > 0 ? <img src={getProductImage(product.images[0])} className="w-full h-full object-cover grayscale-[0.4] group-hover/row:grayscale-0 group-hover/row:scale-110 transition-all duration-700" /> : <ImageIcon className="w-full h-full p-6 opacity-10 text-[var(--haku-ink)]" />}
-                                                        {product.isFeatured && <div className="absolute top-0 right-0 p-1.5 bg-[var(--haku-ink)]" title="精選推薦商品"><Star size={10} className="text-[var(--haku-paper)] fill-current" /></div>}
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-bold text-lg tracking-tight mb-1 text-[var(--haku-ink)]">{product.name}</div>
-                                                        <div className="text-[10px] font-Montserrat font-black opacity-20 tracking-[0.3em] uppercase group-hover/row:opacity-40 transition-opacity">{product.id}</div>
-                                                    </div>
+                            {isLoading ? (
+                                <div className="py-20 text-center opacity-20 text-[10px] font-Montserrat font-black tracking-[0.6em] uppercase animate-pulse">Synchronizing...</div>
+                            ) : (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    {paginatedProducts.map(product => {
+                                        const statusLabel = STATUS_OPTIONS.find(o => o.value === product.status)?.label || product.status;
+                                        return (
+                                            <div key={product.id} className="group bg-white border border-[var(--haku-ink)]/10 hover:border-[var(--haku-ink)]/20 shadow-sm transition-all relative overflow-hidden flex flex-row h-full min-h-[160px]">
+                                                {product.isFeatured && <div className="absolute top-3 left-3 z-10 p-1.5 bg-[var(--haku-ink)] text-white shadow-lg"><Star size={10} className="fill-current" /></div>}
+                                                <div className="w-32 sm:w-40 md:w-48 aspect-square bg-[var(--placeholder-bg)] flex-shrink-0 overflow-hidden border-r border-[var(--haku-ink)]/5">
+                                                    {product.images?.[0] ?
+                                                        <img src={getProductImage(product.images[0])} className="w-full h-full object-cover grayscale-[0.4] group-hover:grayscale-0 transition-all duration-1000" /> :
+                                                        <div className="w-full h-full flex flex-col items-center justify-center opacity-5"><Package size={40} /></div>
+                                                    }
                                                 </div>
-                                            </td>
-                                            <td className="px-10 py-10">
-                                                <span className="text-[10px] font-black tracking-[0.2em] px-4 py-1.5 border border-[var(--haku-ink)]/10 uppercase text-[var(--haku-ink)]">{product.category}</span>
-                                            </td>
-                                            <td className="px-10 py-10 text-center font-Montserrat font-black text-sm text-[var(--haku-ink)]">{product.stock}</td>
-                                            <td className="px-10 py-10 font-Montserrat font-black text-lg text-[var(--haku-ink)]">${product.price.toLocaleString()}</td>
-                                            <td className="px-10 py-10">
-                                                <span className={`text-[9px] font-Montserrat font-black tracking-[0.3em] uppercase px-3 py-1 border ${product.status === 'active' ? 'bg-[var(--haku-ink)] border-[var(--haku-ink)] text-[var(--haku-paper)]' : 'border-[var(--haku-ink)]/20 opacity-30 text-[var(--haku-ink)]'}`}>
-                                                    {statusLabel}
-                                                </span>
-                                            </td>
-                                            <td className="px-10 py-10 text-right">
-                                                <button
-                                                    onClick={() => handleEdit(product)}
-                                                    className="w-14 h-14 bg-transparent border border-[var(--haku-ink)]/10 text-[var(--haku-ink)] hover:bg-[var(--haku-ink)] hover:text-[var(--haku-paper)] hover:border-[var(--haku-ink)] shadow-sm hover:shadow-xl transition-all active:scale-[0.85] flex items-center justify-center ml-auto"
-                                                >
-                                                    <Edit3 size={20} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                                <div className="p-6 md:p-8 flex flex-col justify-center flex-grow min-w-0 pr-16 md:pr-24 relative">
+                                                    <div className="mb-2">
+                                                        <div className="text-[14px] md:text-[16px] font-bold truncate pr-4">{product.name}</div>
+                                                        <div className="text-[9px] font-Montserrat font-black opacity-20 tracking-[0.2em] uppercase">{product.id}</div>
+                                                    </div>
+                                                    <div className="text-lg md:text-xl font-Montserrat font-black mb-4 text-[var(--haku-ink)]">${product.price.toLocaleString()}</div>
+                                                    <div className="flex flex-wrap gap-2 items-center mt-auto">
+                                                        <span className="text-[8px] font-black uppercase tracking-widest border border-[var(--haku-ink)]/20 px-2 py-0.5">{product.category}</span>
+                                                        <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 ${product.status === 'active' ? 'bg-[var(--haku-ink)] text-white' : 'opacity-20 border border-[var(--haku-ink)]/20'}`}>{statusLabel}</span>
+                                                        <span className="text-[9px] font-black opacity-30 uppercase tracking-widest ml-auto">庫存: {product.stock}</span>
+                                                    </div>
 
-                    {!isLoading && products.length === 0 && (
-                        <div className="p-20 md:p-40 text-center">
-                            <Package size={48} className="mx-auto mb-6 opacity-5 md:w-16 md:h-16" />
-                            <p className="text-[10px] md:text-xs font-black opacity-20 tracking-[0.5em] uppercase">尚無在庫資料</p>
+                                                    {/* Explicit Edit Button */}
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleEdit(product); }}
+                                                        className="absolute right-6 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center border border-[var(--haku-ink)]/10 text-[var(--haku-ink)]/30 hover:text-[var(--haku-ink)] hover:border-[var(--haku-ink)]/30 hover:bg-[var(--haku-ink)]/5 rounded-full transition-all duration-300 active:scale-95"
+                                                        title="編輯商品"
+                                                    >
+                                                        <Edit3 size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {!isLoading && products.length === 0 && (
+                                <div className="py-40 text-center">
+                                    <Package size={48} className="mx-auto mb-6 opacity-5" />
+                                    <p className="text-[10px] font-black opacity-20 tracking-[0.6em] uppercase">No Inventory Found</p>
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    <footer className="mt-12 md:mt-20 py-8 md:py-10 border-t flex flex-col md:flex-row justify-between items-center opacity-20 gap-4" style={{ borderColor: COLORS.border }}>
-                        <div className="text-[9px] md:text-[10px] font-black tracking-[0.5em] uppercase">HAKU YAKYUU SELECT © 2025</div>
-                        <div className="text-[9px] md:text-[10px] font-black tracking-[0.5em] uppercase">Admin v2.1 Mobile</div>
+                    <footer className="mt-40 pt-10 border-t border-[var(--haku-ink)]/10 flex flex-col md:flex-row justify-between items-center opacity-30 gap-6">
+                        <div className="text-[9px] font-Montserrat font-black tracking-[0.5em] uppercase">HAKU YAKYUU SELECT © 2025</div>
+                        <div className="flex gap-10">
+                            <span className="text-[9px] font-black tracking-[0.2em] uppercase">System v3.0 Sequential</span>
+                            <span className="text-[9px] font-black tracking-[0.2em] uppercase">Mobile Optimized</span>
+                        </div>
                     </footer>
-
-                </div> {/* End of main content wrapper */}
+                </div>
             </main>
         </div>
     );
