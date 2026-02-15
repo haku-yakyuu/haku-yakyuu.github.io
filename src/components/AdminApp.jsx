@@ -31,7 +31,7 @@ const INITIAL_CATEGORIES = ["WBCQ資格賽", "日本職棒", "徐若熙", "經�
 const ADMIN_WHITELIST = [
     'bohan816@gmail.com',
     'jing370209@gmail.com',
-    'wj209ing@gmai.com'
+    'wj209ing@gmail.com'
 ];
 
 const STATUS_OPTIONS = [
