@@ -162,9 +162,13 @@ export default function AdminApp() {
 
     // Data State
     const [products, setProducts] = useState([]);
+    const [pages, setPages] = useState([]);
+    const [settings, setSettings] = useState({});
     const [isLoading, setIsLoading] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false); // For Blocking Loader
     const [editingProduct, setEditingProduct] = useState(null);
+    const [editingPage, setEditingPage] = useState(null);
+    const [editingSettings, setEditingSettings] = useState(null);
     const [localCache, setLocalCache] = useState({}); // Simple map: filename -> blobUrl
     // Crop State
     const [cropImage, setCropImage] = useState(null); // File to crop
@@ -187,7 +191,7 @@ export default function AdminApp() {
                         setGithubToken(savedToken);
                     }
 
-                    fetchProducts();
+                    fetchAllData();
                 } else {
                     // Not in whitelist
                     signOut(auth);
@@ -241,7 +245,7 @@ export default function AdminApp() {
             if (ADMIN_WHITELIST.includes(result.user.email)) {
                 setUser(result.user);
                 setIsLoggedIn(true); // Success!
-                fetchProducts();
+                fetchAllData();
                 showDialog('success', '驗證成功', 'Google 帳號已登入');
             } else {
                 await signOut(auth);
@@ -261,16 +265,18 @@ export default function AdminApp() {
         setIsLoggedIn(false);
         setUser(null);
         setGithubToken('');
+        setProducts([]);
+        setPages([]);
+        setSettings({});
         setActiveTab('list');
     };
 
-    const fetchProducts = async () => {
+    const fetchAllData = async () => {
         setIsLoading(true);
         try {
             // 1. Fetch Products
             const productsCol = collection(db, 'products');
             const snapshot = await getDocs(productsCol);
-
             const mappedProducts = snapshot.docs.map(doc => {
                 const data = doc.data();
                 return {
@@ -288,12 +294,27 @@ export default function AdminApp() {
             }).sort((a, b) => b.id.localeCompare(a.id));
             setProducts(mappedProducts);
 
-            // 2. Auto-Fetch GitHub Token from private collection
+            // 2. Fetch Pages
+            const pagesCol = collection(db, 'pages');
+            const pagesSnap = await getDocs(pagesCol);
+            setPages(pagesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+            // 3. Fetch Settings
+            const settingsCol = collection(db, 'settings');
+            const settingsSnap = await getDocs(settingsCol);
+            const requiredKeys = ['about_text', 'announcement', 'google_ads_id', 'google_ads_label', 'google_verification', 'site_currency', 'site_title', 'solid_tags', 'yahoo_url'];
+            const settingsObj = {};
+            requiredKeys.forEach(k => settingsObj[k] = ""); // Init with empty
+            settingsSnap.forEach(d => {
+                settingsObj[d.id] = d.data().Value || d.data().value || "";
+            });
+            setSettings(settingsObj);
+
+            // 4. Auto-Fetch GitHub Token
             if (!githubToken) {
                 const tokenDoc = await getDoc(doc(db, 'admin_config', 'github'));
                 if (tokenDoc.exists()) {
                     setGithubToken(tokenDoc.data().token);
-                    showDialog('success', '權限就緒', '已自動載入雲端上傳授權');
                 }
             }
         } catch (err) {
@@ -630,6 +651,40 @@ export default function AdminApp() {
         }
     };
 
+    const handleSavePage = async (pageId, title, content) => {
+        setIsProcessing(true);
+        try {
+            await setDoc(doc(db, 'pages', pageId), { title, content });
+            setPages(prev => prev.map(p => p.id === pageId ? { ...p, title, content } : p));
+            showDialog('success', '頁面已更新', `[${title}] 儲存成功`);
+            setEditingPage(null);
+        } catch (err) {
+            console.error(err);
+            showDialog('error', '儲存失敗', err.message);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleSaveSettings = async (newSettings) => {
+        setIsProcessing(true);
+        try {
+            const batch = writeBatch(db);
+            Object.entries(newSettings).forEach(([key, value]) => {
+                batch.set(doc(db, 'settings', key), { Value: value });
+            });
+            await batch.commit();
+            setSettings(newSettings);
+            showDialog('success', '全域設定已更新', '所有變更已同步至雲端');
+            setEditingSettings(null);
+        } catch (err) {
+            console.error(err);
+            showDialog('error', '儲存失敗', err.message);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     const toBase64 = (file) => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -751,20 +806,34 @@ export default function AdminApp() {
 
             {/* Sub-menu Tabs */}
             <div className="bg-[var(--haku-paper)] border-b border-[var(--haku-ink)]/5 px-6 md:px-12">
-                <div className="max-w-7xl mx-auto flex gap-8 md:gap-12">
+                <div className="max-w-7xl mx-auto flex gap-6 md:gap-12 overflow-x-auto no-scrollbar">
                     <button
                         onClick={() => { setActiveTab('list'); setEditingProduct(null); }}
-                        className={`py-6 text-[11px] font-Montserrat font-black uppercase tracking-[0.3em] transition-all relative ${activeTab === 'list' ? 'text-[var(--haku-ink)]' : 'text-[var(--haku-ink)]/30 hover:text-[var(--haku-ink)]'}`}
+                        className={`py-6 text-[11px] font-Montserrat font-black uppercase tracking-[0.3em] transition-all relative whitespace-nowrap ${activeTab === 'list' ? 'text-[var(--haku-ink)]' : 'text-[var(--haku-ink)]/30 hover:text-[var(--haku-ink)]'}`}
                     >
                         商品一覽
                         {activeTab === 'list' && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[var(--haku-ink)]"></div>}
                     </button>
                     <button
                         onClick={handleCreateNew}
-                        className={`py-6 text-[11px] font-Montserrat font-black uppercase tracking-[0.3em] transition-all relative ${activeTab === 'edit' && !products.some(p => p.id === editingProduct?.id) ? 'text-[var(--haku-ink)]' : 'text-[var(--haku-ink)]/30 hover:text-[var(--haku-ink)]'}`}
+                        className={`py-6 text-[11px] font-Montserrat font-black uppercase tracking-[0.3em] transition-all relative whitespace-nowrap ${activeTab === 'edit' && !products.some(p => p.id === editingProduct?.id) ? 'text-[var(--haku-ink)]' : 'text-[var(--haku-ink)]/30 hover:text-[var(--haku-ink)]'}`}
                     >
                         新增商品
                         {activeTab === 'edit' && !products.some(p => p.id === editingProduct?.id) && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[var(--haku-ink)]"></div>}
+                    </button>
+                    <button
+                        onClick={() => { setActiveTab('pages'); setEditingPage(null); }}
+                        className={`py-6 text-[11px] font-Montserrat font-black uppercase tracking-[0.3em] transition-all relative whitespace-nowrap ${activeTab === 'pages' ? 'text-[var(--haku-ink)]' : 'text-[var(--haku-ink)]/30 hover:text-[var(--haku-ink)]'}`}
+                    >
+                        網頁內容
+                        {activeTab === 'pages' && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[var(--haku-ink)]"></div>}
+                    </button>
+                    <button
+                        onClick={() => { setActiveTab('settings'); setEditingSettings(null); }}
+                        className={`py-6 text-[11px] font-Montserrat font-black uppercase tracking-[0.3em] transition-all relative whitespace-nowrap ${activeTab === 'settings' ? 'text-[var(--haku-ink)]' : 'text-[var(--haku-ink)]/30 hover:text-[var(--haku-ink)]'}`}
+                    >
+                        全域設定
+                        {activeTab === 'settings' && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[var(--haku-ink)]"></div>}
                     </button>
                 </div>
             </div>
@@ -945,6 +1014,140 @@ export default function AdminApp() {
                                     <p className="text-[10px] font-black opacity-20 tracking-[0.6em] uppercase">No Inventory Found</p>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* VIEW: Pages Management */}
+                    {activeTab === 'pages' && (
+                        <div className="animate-in fade-in duration-500 space-y-12">
+                            <h2 className="text-[16px] font-Montserrat font-black uppercase tracking-[0.5em] text-[var(--haku-ink)] border-b border-[var(--haku-ink)]/10 pb-6">PAGE CONTENT</h2>
+
+                            <div className="grid grid-cols-1 gap-8">
+                                {pages.map(page => (
+                                    <div key={page.id} className="bg-white border border-[var(--haku-ink)]/10 p-8">
+                                        {editingPage?.id === page.id ? (
+                                            <div className="space-y-6">
+                                                <div className="space-y-2">
+                                                    <label className="text-[9px] font-black uppercase opacity-30 tracking-widest">標題</label>
+                                                    <input
+                                                        className="text-xl font-bold w-full bg-transparent border-none focus:ring-0 p-0"
+                                                        value={editingPage.title}
+                                                        onChange={e => setEditingPage({ ...editingPage, title: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[9px] font-black uppercase opacity-30 tracking-widest">內容正文</label>
+                                                    <textarea
+                                                        className="w-full min-h-[400px] text-sm leading-relaxed p-6 bg-[var(--haku-ink)]/5 border-none focus:ring-1 focus:ring-[var(--haku-ink)]/10"
+                                                        value={editingPage.content}
+                                                        onChange={e => setEditingPage({ ...editingPage, content: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="flex gap-4 pt-4">
+                                                    <button
+                                                        onClick={() => handleSavePage(page.id, editingPage.title, editingPage.content)}
+                                                        className="px-12 py-5 bg-[var(--haku-ink)] text-white text-[10px] font-black uppercase tracking-[0.4em]"
+                                                    >
+                                                        儲存頁面
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setEditingPage(null)}
+                                                        className="px-8 py-5 border border-[var(--haku-ink)]/20 text-[10px] font-black uppercase tracking-widest"
+                                                    >
+                                                        取消
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <h3 className="text-xl font-bold">{page.title}</h3>
+                                                    <button
+                                                        onClick={() => setEditingPage(page)}
+                                                        className="p-3 border border-[var(--haku-ink)]/10 text-[var(--haku-ink)]/30 hover:text-[var(--haku-ink)] hover:border-[var(--haku-ink)]/30 hover:bg-[var(--haku-ink)]/5 transition-all"
+                                                    >
+                                                        <Edit3 size={16} />
+                                                    </button>
+                                                </div>
+                                                <div className="text-sm opacity-50 line-clamp-3 leading-relaxed whitespace-pre-wrap">
+                                                    {page.content}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* VIEW: Settings Management */}
+                    {activeTab === 'settings' && (
+                        <div className="animate-in fade-in duration-500 space-y-12">
+                            <div className="flex justify-between items-end border-b border-[var(--haku-ink)]/10 pb-6">
+                                <h2 className="text-[16px] font-Montserrat font-black uppercase tracking-[0.5em] text-[var(--haku-ink)]">SYSTEM SETTINGS</h2>
+                                {!editingSettings && (
+                                    <button
+                                        onClick={() => setEditingSettings({ ...settings })}
+                                        className="text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-all flex items-center gap-2"
+                                    >
+                                        <Edit3 size={14} /> 進入編輯模式
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="bg-white border border-[var(--haku-ink)]/10 p-8 sm:p-14">
+                                {editingSettings ? (
+                                    <div className="space-y-12">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-10">
+                                            {Object.keys(settings).sort().map(key => (
+                                                <div key={key} className={`space-y-3 ${key === 'about_text' ? 'md:col-span-2' : ''}`}>
+                                                    <label className="text-[10px] font-Montserrat font-black uppercase opacity-30 tracking-widest">{key.replace(/_/g, ' ')}</label>
+                                                    {key === 'about_text' ? (
+                                                        <textarea
+                                                            className="w-full p-6 bg-[var(--haku-ink)]/5 border-none text-sm min-h-[220px] leading-relaxed"
+                                                            value={editingSettings[key]}
+                                                            onChange={e => setEditingSettings({ ...editingSettings, [key]: e.target.value })}
+                                                        />
+                                                    ) : (
+                                                        <input
+                                                            className="w-full p-5 bg-[var(--haku-ink)]/5 border-none text-lg font-bold"
+                                                            value={editingSettings[key]}
+                                                            onChange={e => setEditingSettings({ ...editingSettings, [key]: e.target.value })}
+                                                        />
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="flex flex-col md:flex-row gap-6 justify-between pt-12 border-t border-[var(--haku-ink)]/10">
+                                            <button
+                                                onClick={() => setEditingSettings(null)}
+                                                className="px-8 py-5 border border-[var(--haku-ink)]/20 text-[10px] font-black uppercase tracking-widest order-2 md:order-1"
+                                            >
+                                                放棄所有變更
+                                            </button>
+                                            <button
+                                                onClick={() => handleSaveSettings(editingSettings)}
+                                                className="px-20 py-5 bg-[var(--haku-ink)] text-white text-[10px] font-black uppercase tracking-[0.4em] order-1 md:order-2 shadow-xl"
+                                            >
+                                                核對並同步雲端
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-12">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-12">
+                                            {Object.entries(settings).sort().map(([key, value]) => (
+                                                <div key={key} className={`${key === 'about_text' ? 'md:col-span-2 border-t border-[var(--haku-ink)]/5 pt-10 mt-4' : ''}`}>
+                                                    <div className="text-[10px] font-Montserrat font-black uppercase opacity-40 tracking-widest mb-3">{key.replace(/_/g, ' ')}</div>
+                                                    <div className={`text-base font-bold leading-relaxed ${key === 'about_text' ? 'whitespace-pre-wrap opacity-60' : 'truncate'}`}>
+                                                        {value || <span className="opacity-10 italic font-normal tracking-wider">Empty Field</span>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 

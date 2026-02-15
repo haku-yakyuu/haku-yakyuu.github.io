@@ -6,7 +6,7 @@ const IMAGE_DIR = path.join(process.cwd(), 'public/products');
 
 async function downloadImage(url, filename, force = false) {
   const filePath = path.join(IMAGE_DIR, filename);
-  
+
   if (force && fs.existsSync(filePath)) {
     console.log(`! 偵測到更新訊號，正在移除舊圖: ${filename}`);
     fs.unlinkSync(filePath);
@@ -40,18 +40,23 @@ async function sync() {
     const rawImages = product.layout_images || product.images || "";
     if (!rawImages) continue;
 
-    const isRefreshSignaled = product.tags && product.tags.includes('更新');
-    const urls = rawImages.split(',').map(u => u.trim()).filter(Boolean);
-    
-    if (isRefreshSignaled) {
-      console.log(`>>> [更新訊號] 準備重新下載商品 ${product.id} 的所有圖片...`);
-    } else {
-      console.log(`處理商品 ${product.id} (${urls.length} 張圖片)`);
-    }
+    const isRefreshSignaled = product.tags && (typeof product.tags === 'string' ? product.tags : product.tags.join(',')).includes('更新');
+    const urls = (typeof rawImages === 'string' ? rawImages.split(",") : rawImages).map(u => u.trim()).filter(Boolean);
+
+    console.log(`處理商品 ${product.id} (${urls.length} 張圖片)`);
 
     for (let i = 0; i < urls.length; i++) {
-      const filename = `${product.id}-${i}.jpg`;
-      await downloadImage(urls[i], filename, isRefreshSignaled);
+      const imgUrl = urls[i];
+      // 如果不是以 http 開頭，代表已經是 repo 內的檔名，無需下載
+      if (!imgUrl.startsWith('http')) {
+        console.log(`- 跳過非 URL 資源: ${imgUrl}`);
+        continue;
+      }
+
+      const filename = imgUrl.split('/').pop().split('?')[0] || `${product.id}-${i}.jpg`;
+      const finalFilename = filename.toLowerCase().endsWith('.webp') ? filename : `${product.id}-${i}.jpg`;
+
+      await downloadImage(imgUrl, finalFilename, isRefreshSignaled);
     }
   }
   console.log('圖片同步完成！');

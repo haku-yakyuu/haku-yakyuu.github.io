@@ -1,5 +1,5 @@
 ---
-import ConfigService from '../services/configService';
+import ConfigService from '../services/configService.js';
 
 const { config, products } = await ConfigService.fetchData();
 const siteName = config?.site_name || "HAKU 1984";

@@ -1,4 +1,4 @@
-import { db } from './firebase';
+import { db } from './firebase.js';
 import { collection, getDocs } from 'firebase/firestore';
 
 // 預設備用資料 (當 API 連不上時顯示)
