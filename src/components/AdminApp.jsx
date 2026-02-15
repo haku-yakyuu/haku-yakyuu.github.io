@@ -714,7 +714,12 @@ export default function AdminApp() {
             headers: { Authorization: `token ${githubToken}`, "Content-Type": "application/json" },
             body: JSON.stringify(body)
         });
-        if (!res.ok) throw new Error("GitHub API Error");
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({ message: 'Unknown error' }));
+            console.error('GitHub PUT failed:', errData);
+            throw new Error(`GitHub API Error: ${errData.message || res.statusText} (${res.status})`);
+        }
     };
 
     // --- UI Renders ---
