@@ -640,8 +640,9 @@ export default function AdminApp() {
             if (!products.find(p => p.id === id)) updatedDocs.push(productForList);
             setProducts(updatedDocs);
 
-            showDialog('success', '存檔完成', `商品 [${id}] 已成功更新`);
+            showDialog('success', '更新中', `商品 [${id}] 資料已儲存，正在通知系統重新發布...`);
             setEditingProduct(null);
+            triggerDeploy();
 
         } catch (err) {
             console.error(err);
