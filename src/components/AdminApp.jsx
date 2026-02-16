@@ -923,8 +923,31 @@ export default function AdminApp() {
                                         </div>
                                         <div className="space-y-3">
                                             <label className="text-[10px] font-Montserrat font-black uppercase tracking-widest opacity-40">分類</label>
-                                            <input list="cat-list" type="text" placeholder="選擇或輸入分類..." className="w-full p-4 bg-white/50 border-none text-lg font-bold focus:bg-white" value={editingProduct.category} onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value })} />
-                                            <datalist id="cat-list">{allCategories.map(c => <option key={c} value={c} />)}</datalist>
+                                            <input
+                                                list="cat-list"
+                                                type="text"
+                                                placeholder="選擇或輸入分類..."
+                                                className="w-full p-4 bg-white/50 border-none text-lg font-bold focus:bg-white transition-all"
+                                                value={editingProduct.category}
+                                                onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value })}
+                                            />
+                                            <datalist id="cat-list">
+                                                {allCategories.map(c => <option key={c} value={c} />)}
+                                            </datalist>
+
+                                            {/* Quick Select Tags */}
+                                            <div className="flex flex-wrap gap-2 pt-1">
+                                                {allCategories.slice(0, 10).map(cat => (
+                                                    <button
+                                                        key={cat}
+                                                        type="button"
+                                                        onClick={() => setEditingProduct({ ...editingProduct, category: cat })}
+                                                        className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.1em] border transition-all ${editingProduct.category === cat ? 'bg-[var(--haku-ink)] text-white border-[var(--haku-ink)]' : 'bg-transparent text-[var(--haku-ink)]/30 border-[var(--haku-ink)]/10 hover:border-[var(--haku-ink)]/30 hover:text-[var(--haku-ink)]'}`}
+                                                    >
+                                                        {cat}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                         <div className="space-y-3">
                                             <label className="text-[10px] font-Montserrat font-black uppercase tracking-widest opacity-40">售價</label>
