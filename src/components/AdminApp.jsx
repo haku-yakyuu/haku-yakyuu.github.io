@@ -656,8 +656,9 @@ export default function AdminApp() {
         try {
             await setDoc(doc(db, 'pages', pageId), { title, content });
             setPages(prev => prev.map(p => p.id === pageId ? { ...p, title, content } : p));
-            showDialog('success', '頁面已更新', `[${title}] 儲存成功`);
+            showDialog('success', '頁面更新中', `[${title}] 已儲存，正在通知系統重新發布...`);
             setEditingPage(null);
+            triggerDeploy();
         } catch (err) {
             console.error(err);
             showDialog('error', '儲存失敗', err.message);
@@ -675,8 +676,9 @@ export default function AdminApp() {
             });
             await batch.commit();
             setSettings(newSettings);
-            showDialog('success', '全域設定已更新', '所有變更已同步至雲端');
+            showDialog('success', '設定更新中', '所有變更已同步，正在通知系統重新發布...');
             setEditingSettings(null);
+            triggerDeploy();
         } catch (err) {
             console.error(err);
             showDialog('error', '儲存失敗', err.message);
@@ -719,6 +721,25 @@ export default function AdminApp() {
             const errData = await res.json().catch(() => ({ message: 'Unknown error' }));
             console.error('GitHub PUT failed:', errData);
             throw new Error(`GitHub API Error: ${errData.message || res.statusText} (${res.status})`);
+        }
+    };
+
+    const triggerDeploy = async () => {
+        if (!githubToken) return;
+        const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/dispatches`;
+        try {
+            await fetch(url, {
+                method: 'POST',
+                headers: {
+                    Authorization: `token ${githubToken}`,
+                    "Accept": "application/vnd.github.v3+json",
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ event_type: 'webhook' })
+            });
+            console.log("Deployment trigger sent to GitHub Actions.");
+        } catch (err) {
+            console.error("Failed to trigger deployment:", err);
         }
     };
 
