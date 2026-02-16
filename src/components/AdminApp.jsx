@@ -984,14 +984,14 @@ export default function AdminApp() {
                                 <div className="flex flex-col-reverse md:flex-row gap-6 justify-between pt-12 border-t border-[var(--haku-ink)]/10">
                                     <div className="flex gap-4">
                                         {products.some(p => p.id === editingProduct.id) && (
-                                            <button type="button" onClick={handleDelete} className="p-5 text-[10px] font-black uppercase tracking-widest bg-white border border-[var(--haku-ink)]/10 hover:border-red-900 overflow-hidden group relative">
+                                            <button type="button" onClick={handleDelete} className="px-8 py-5 text-[10px] font-black uppercase tracking-widest bg-white border border-[var(--haku-ink)]/10 hover:border-red-900 overflow-hidden group relative flex items-center justify-center">
                                                 <span className="group-hover:translate-x-full inline-block transition-transform duration-300">刪除商品</span>
                                                 <div className="absolute inset-0 bg-red-900 text-white flex items-center justify-center -translate-x-full group-hover:translate-x-0 transition-transform duration-300">SURE?</div>
                                             </button>
                                         )}
-                                        <button type="button" onClick={() => { setActiveTab('list'); setEditingProduct(null); }} className="px-10 py-5 text-[10px] font-black uppercase tracking-widest border border-[var(--haku-ink)]/10 hover:bg-[var(--haku-ink)] hover:text-white transition-all">放棄</button>
+                                        <button type="button" onClick={() => { setActiveTab('list'); setEditingProduct(null); }} className="px-10 py-5 text-[10px] font-black uppercase tracking-widest border border-[var(--haku-ink)]/10 hover:bg-[var(--haku-ink)] hover:text-white transition-all flex items-center justify-center">放棄</button>
                                     </div>
-                                    <button type="submit" className="px-20 py-5 text-[10px] font-black uppercase tracking-[0.4em] bg-[var(--haku-ink)] text-[var(--haku-paper)] shadow-xl hover:-translate-y-1 active:translate-y-0 transition-all">核對並儲存資料</button>
+                                    <button type="submit" className="px-20 py-5 text-[10px] font-black uppercase tracking-[0.4em] bg-[var(--haku-ink)] text-[var(--haku-paper)] shadow-xl hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center">核對並儲存資料</button>
                                 </div>
                             </form>
                         </div>
@@ -1096,13 +1096,13 @@ export default function AdminApp() {
                                                 <div className="flex gap-4 pt-4">
                                                     <button
                                                         onClick={() => handleSavePage(page.id, editingPage.title, editingPage.content)}
-                                                        className="px-12 py-5 bg-[var(--haku-ink)] text-white text-[10px] font-black uppercase tracking-[0.4em]"
+                                                        className="px-12 py-5 bg-[var(--haku-ink)] text-white text-[10px] font-black uppercase tracking-[0.4em] flex items-center justify-center"
                                                     >
                                                         儲存頁面
                                                     </button>
                                                     <button
                                                         onClick={() => setEditingPage(null)}
-                                                        className="px-8 py-5 border border-[var(--haku-ink)]/20 text-[10px] font-black uppercase tracking-widest"
+                                                        className="px-8 py-5 border border-[var(--haku-ink)]/20 text-[10px] font-black uppercase tracking-widest flex items-center justify-center"
                                                     >
                                                         取消
                                                     </button>
@@ -1171,13 +1171,13 @@ export default function AdminApp() {
                                         <div className="flex flex-col md:flex-row gap-6 justify-between pt-12 border-t border-[var(--haku-ink)]/10">
                                             <button
                                                 onClick={() => setEditingSettings(null)}
-                                                className="px-8 py-5 border border-[var(--haku-ink)]/20 text-[10px] font-black uppercase tracking-widest order-2 md:order-1"
+                                                className="px-8 py-5 border border-[var(--haku-ink)]/20 text-[10px] font-black uppercase tracking-widest order-2 md:order-1 flex items-center justify-center"
                                             >
                                                 放棄所有變更
                                             </button>
                                             <button
                                                 onClick={() => handleSaveSettings(editingSettings)}
-                                                className="px-20 py-5 bg-[var(--haku-ink)] text-white text-[10px] font-black uppercase tracking-[0.4em] order-1 md:order-2 shadow-xl"
+                                                className="px-20 py-5 bg-[var(--haku-ink)] text-white text-[10px] font-black uppercase tracking-[0.4em] order-1 md:order-2 shadow-xl flex items-center justify-center"
                                             >
                                                 核對並同步雲端
                                             </button>
