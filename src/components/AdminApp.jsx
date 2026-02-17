@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import {
     Search, Plus, LogOut, ArrowUp, ArrowDown, CheckCircle, AlertCircle, Lock,
-    Menu, Package, Upload, ArrowLeft, ArrowRight, Image as ImageIcon, Star, Trash2, X, Edit3, User, Crop, PenLine
+    Menu, Package, Upload, ArrowLeft, ArrowRight, Image as ImageIcon, Star, Trash2, X, Edit3, User, Crop, PenLine,
+    FileDown, CheckSquare, Square
 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import Cropper from 'react-easy-crop';
@@ -176,6 +177,12 @@ export default function AdminApp() {
     const [zoom, setZoom] = useState(1);
     const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
+
+    // Export State
+    const [activeExportMode, setActiveExportMode] = useState('range'); // 'range' | 'manual'
+    const [selectedProductIds, setSelectedProductIds] = useState([]);
+    const [exportFee, setExportFee] = useState(15);
+    const [exportRange, setExportRange] = useState({ start: '', end: '' });
 
     // --- Init ---
     useEffect(() => {
@@ -405,6 +412,104 @@ export default function AdminApp() {
         } catch (err) {
             console.error(err);
             showDialog('error', '遷移失敗', err.message);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+    const toggleProductSelection = (id) => {
+        setSelectedProductIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const handleExportXLSX = () => {
+        setIsProcessing(true);
+        try {
+            // 1. Filter products
+            let toExport = [];
+            if (activeExportMode === 'range') {
+                if (!exportRange.start || !exportRange.end) {
+                    showDialog('error', '匯出失敗', '請輸入商品編號範圍');
+                    setIsProcessing(false);
+                    return;
+                }
+                toExport = products.filter(p => {
+                    const id = p.id;
+                    return id >= exportRange.start && id <= exportRange.end;
+                });
+            } else {
+                toExport = products.filter(p => selectedProductIds.includes(p.id));
+            }
+
+            if (toExport.length === 0) {
+                showDialog('error', '匯出失敗', '未選取任何商品或範圍內無商品');
+                setIsProcessing(false);
+                return;
+            }
+
+            // 2. Prepare Data (43 Columns)
+            const headers = [
+                "分類", "商品名稱", "商品描述", "最低購買數量", "主商品貨號", "危險物品", "商品規格識別碼",
+                "規格名稱 1", "規格選項 1", "規格圖片", "規格名稱 2", "規格選項 2", "價格", "庫存",
+                "商品選項貨號", "新版尺寸表", "圖片尺寸表", "GTIN", "主商品圖片", "商品圖片 1", "商品圖片 2",
+                "商品圖片 3", "商品圖片 4", "商品圖片 5", "商品圖片 6", "商品圖片 7", "商品圖片 8",
+                "重量", "長度", "寬度", "高度", "黑貓宅急便", "7-ELEVEN", "全家", "萊爾富",
+                "全家冷凍超取(不寄送離島地區)", "宅配通", "蝦皮店到店", "店到家宅配 - 標準包裹",
+                "蝦皮店到店 - 隔日到貨", "店到家宅配 - 大型包裹", "較長備貨天數", "失敗原因"
+            ];
+
+            const rows = toExport.sort((a, b) => a.id.localeCompare(b.id)).map(p => {
+                const row = new Array(43).fill("");
+
+                // 分類 (Col 1)
+                let catCode = p.category;
+                if (catCode === "棒球" || catCode === "壘球") catCode = "101285";
+                else if (catCode === "愛好收藏品") catCode = "101399";
+                row[0] = catCode;
+
+                // 商品名稱 (Col 2)
+                row[1] = p.name;
+
+                // 商品描述 (Col 3)
+                row[2] = `此商品本體價格為 ${p.price}元\n${p.desc || ''}`;
+
+                // 價格 (Col 13)
+                const feeFactor = 1 - (exportFee / 100);
+                row[12] = Math.ceil(p.price / feeFactor);
+
+                // 庫存 (Col 14)
+                row[13] = p.stock;
+
+                // 圖片 URLs (Col 19-25) - Using webp as consistent with the build system
+                const baseUrl = `https://raw.githubusercontent.com/haku-yakyuu/haku-yakyuu.github.io/refs/heads/main/dist/products/${p.id}`;
+                row[18] = `${baseUrl}-0.webp`; // 主圖
+                for (let i = 1; i <= 6; i++) {
+                    if (p.images && p.images.length > i) {
+                        row[18 + i] = `${baseUrl}-${i}.webp`;
+                    }
+                }
+
+                // 物流開啟 (Col 33, 34, 38, 39, 40)
+                row[32] = "開啟"; // 7-ELEVEN
+                row[33] = "開啟"; // 全家
+                row[37] = "開啟"; // 蝦皮店到店
+                row[38] = "開啟"; // 店到家宅配 - 標準包裹
+                row[39] = "開啟"; // 蝦皮店到店 - 隔日到貨
+
+                return row;
+            });
+
+            // 3. Create Sheet
+            const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+            // 4. Download
+            XLSX.writeFile(workbook, `HAKU_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showDialog('success', '匯出成功', `已匯出 ${toExport.length} 項商品`);
+        } catch (err) {
+            console.error(err);
+            showDialog('error', '匯出失敗', err.message);
         } finally {
             setIsProcessing(false);
         }
@@ -890,6 +995,13 @@ export default function AdminApp() {
                         全域設定
                         {activeTab === 'settings' && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[var(--haku-ink)]"></div>}
                     </button>
+                    <button
+                        onClick={() => { setActiveTab('export'); }}
+                        className={`py-6 text-[11px] font-Montserrat font-black uppercase tracking-[0.3em] transition-all relative whitespace-nowrap ${activeTab === 'export' ? 'text-[var(--haku-ink)]' : 'text-[var(--haku-ink)]/30 hover:text-[var(--haku-ink)]'}`}
+                    >
+                        試算表匯出
+                        {activeTab === 'export' && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[var(--haku-ink)]"></div>}
+                    </button>
                 </div>
             </div>
 
@@ -1071,6 +1183,14 @@ export default function AdminApp() {
                                         const statusLabel = STATUS_OPTIONS.find(o => o.value === product.status)?.label || product.status;
                                         return (
                                             <div key={product.id} className="group bg-white border border-[var(--haku-ink)]/10 hover:border-[var(--haku-ink)]/20 shadow-sm transition-all relative overflow-hidden flex flex-row h-full min-h-[160px]">
+                                                {/* Selection Checkbox */}
+                                                <button
+                                                    onClick={() => toggleProductSelection(product.id)}
+                                                    className={`absolute top-0 right-0 z-20 p-4 transition-all ${selectedProductIds.includes(product.id) ? 'text-[var(--haku-ink)]' : 'text-[var(--haku-ink)]/10 hover:text-[var(--haku-ink)]/30'}`}
+                                                >
+                                                    {selectedProductIds.includes(product.id) ? <CheckSquare size={20} /> : <Square size={20} />}
+                                                </button>
+
                                                 {product.isFeatured && <div className="absolute top-3 left-3 z-10 p-1.5 bg-[var(--haku-ink)] text-white shadow-lg"><Star size={10} className="fill-current" /></div>}
                                                 <div className="w-32 sm:w-40 md:w-48 aspect-square bg-[var(--placeholder-bg)] flex-shrink-0 overflow-hidden border-r border-[var(--haku-ink)]/5">
                                                     {product.images?.[0] ?
@@ -1244,6 +1364,105 @@ export default function AdminApp() {
                                         </div>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* VIEW: Export Management */}
+                    {activeTab === 'export' && (
+                        <div className="animate-in fade-in duration-500 space-y-12 max-w-4xl mx-auto">
+                            <div className="flex items-center justify-between border-b border-[var(--haku-ink)]/10 pb-6">
+                                <h2 className="text-[16px] font-Montserrat font-black uppercase tracking-[0.5em] text-[var(--haku-ink)]">EXCEL EXPORT</h2>
+                                <FileDown className="opacity-20" size={24} />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                {/* Left: Configure Mode */}
+                                <div className="space-y-8 bg-white border border-[var(--haku-ink)]/10 p-10">
+                                    <div className="space-y-6">
+                                        <label className="text-[10px] font-Montserrat font-black uppercase tracking-[0.3em] opacity-40">匯出模式</label>
+                                        <div className="flex gap-4">
+                                            <button
+                                                onClick={() => setActiveExportMode('range')}
+                                                className={`flex-1 py-4 border text-[10px] font-black uppercase tracking-widest transition-all ${activeExportMode === 'range' ? 'bg-[var(--haku-ink)] text-white border-[var(--haku-ink)]' : 'bg-transparent border-[var(--haku-ink)]/10 text-[var(--haku-ink)] opacity-40 hover:opacity-100'}`}
+                                            >
+                                                範圍選取
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveExportMode('manual')}
+                                                className={`flex-1 py-4 border text-[10px] font-black uppercase tracking-widest transition-all ${activeExportMode === 'manual' ? 'bg-[var(--haku-ink)] text-white border-[var(--haku-ink)]' : 'bg-transparent border-[var(--haku-ink)]/10 text-[var(--haku-ink)] opacity-40 hover:opacity-100'}`}
+                                            >
+                                                手動勾選 ({selectedProductIds.length})
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {activeExportMode === 'range' ? (
+                                        <div className="space-y-6 animate-in slide-in-from-top-2">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <label className="text-[9px] font-black opacity-30 uppercase tracking-widest">起始編號 (含)</label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="haku_001"
+                                                        className="w-full p-4 bg-[var(--haku-ink)]/5 border-none font-bold placeholder:opacity-20"
+                                                        value={exportRange.start}
+                                                        onChange={e => setExportRange({ ...exportRange, start: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[9px] font-black opacity-30 uppercase tracking-widest">結束編號 (含)</label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="haku_050"
+                                                        className="w-full p-4 bg-[var(--haku-ink)]/5 border-none font-bold placeholder:opacity-20"
+                                                        value={exportRange.end}
+                                                        onChange={e => setExportRange({ ...exportRange, end: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <p className="text-[9px] font-bold opacity-30 italic leading-relaxed">提示：將匯出 ID 在此字母順序範圍內的所有商品。</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4 animate-in slide-in-from-top-2">
+                                            <p className="text-[11px] font-bold">已在「商品一覽」中勾選 {selectedProductIds.length} 項商品。</p>
+                                            <button
+                                                onClick={() => setSelectedProductIds([])}
+                                                className="text-[9px] font-black uppercase text-red-900/60 hover:text-red-900 tracking-widest"
+                                            >
+                                                清除所有勾選
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Right: Price Options */}
+                                <div className="space-y-8 bg-white border border-[var(--haku-ink)]/10 p-10">
+                                    <div className="space-y-4">
+                                        <label className="text-[10px] font-Montserrat font-black uppercase tracking-[0.3em] opacity-40">上架手續費設定</label>
+                                        <div className="flex items-center gap-6">
+                                            <input
+                                                type="number"
+                                                className="w-24 p-4 bg-[var(--haku-ink)]/5 border-none text-2xl font-black text-center"
+                                                value={exportFee}
+                                                onChange={e => setExportFee(Number(e.target.value))}
+                                            />
+                                            <div className="flex-1">
+                                                <div className="text-xl font-Montserrat font-black">%</div>
+                                                <p className="text-[9px] font-bold opacity-30 uppercase tracking-widest mt-1">匯出售價 = 原價 / (1 - {exportFee}%)</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-6 border-t border-[var(--haku-ink)]/5">
+                                        <button
+                                            onClick={handleExportXLSX}
+                                            className="w-full py-6 bg-[var(--haku-ink)] text-white text-[10px] font-black uppercase tracking-[0.4em] shadow-xl hover:-translate-y-1 transition-all flex items-center justify-center gap-4"
+                                        >
+                                            <FileDown size={18} /> 開始匯出 XLSX
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
