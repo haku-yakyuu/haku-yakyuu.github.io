@@ -416,14 +416,14 @@ export default function AdminApp() {
     const triggerFileUpload = () => fileInputRef.current?.click();
     const triggerCamera = () => cameraInputRef.current?.click();
 
-    const handleFileChange = async (e) => {
+    const handleFileChange = (e) => {
         if (!editingProduct) return;
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.addEventListener('load', () => setCropImage(reader.result));
-        reader.readAsDataURL(file);
+        // Use Object URL instead of Base64 for better mobile performance (prevent OOM crashes)
+        const objectUrl = URL.createObjectURL(file);
+        setCropImage(objectUrl);
 
         // Reset input for same file upload
         e.target.value = null;
@@ -443,9 +443,8 @@ export default function AdminApp() {
         setIsDragging(false);
         const file = e.dataTransfer.files?.[0];
         if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.addEventListener('load', () => setCropImage(reader.result));
-            reader.readAsDataURL(file);
+            const objectUrl = URL.createObjectURL(file);
+            setCropImage(objectUrl);
         }
     };
 
@@ -947,8 +946,8 @@ export default function AdminApp() {
                                                 </button>
 
                                                 <button type="button" onClick={triggerCamera} className="md:hidden aspect-square border-2 border-dashed border-[var(--haku-ink)]/10 hover:border-[var(--haku-ink)]/30 hover:bg-[var(--haku-ink)]/5 flex flex-col items-center justify-center gap-3 transition-all">
-                                                    <PenLine size={24} className="opacity-20" />
-                                                    <span className="text-[9px] font-black opacity-30 tracking-widest uppercase text-center px-2">CAMERA</span>
+                                                    <ImageIcon size={24} className="opacity-20" />
+                                                    <span className="text-[9px] font-black opacity-30 tracking-widest uppercase text-center px-2">TAKE PHOTO</span>
                                                 </button>
                                             </div>
                                         </div>
