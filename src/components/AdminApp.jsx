@@ -568,7 +568,8 @@ export default function AdminApp() {
 
             setProducts(products.filter(p => p.id !== editingProduct.id));
             setEditingProduct(null);
-            showDialog('success', '已刪除', `商品 [${editingProduct.id}] 已成功移除`);
+            showDialog('success', '已刪除', `商品 [${editingProduct.id}] 已移除，正在通知系統更新...`);
+            triggerDeploy();
         } catch (err) {
             console.error(err);
             showDialog('error', '刪除失敗', err.message);
