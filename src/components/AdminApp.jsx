@@ -186,9 +186,13 @@ export default function AdminApp() {
                     setIsLoggedIn(true); // Whitelisted Google User is considered logged in
 
                     // Recover GitHub token for image operations
-                    const savedToken = localStorage.getItem('github_token');
-                    if (savedToken) {
-                        setGithubToken(savedToken);
+                    try {
+                        const savedToken = localStorage.getItem('github_token');
+                        if (savedToken) {
+                            setGithubToken(savedToken);
+                        }
+                    } catch (e) {
+                        console.warn("Could not access localStorage for token", e);
                     }
 
                     fetchAllData();
@@ -777,14 +781,14 @@ export default function AdminApp() {
                 <FontStyles />
                 <LoadingOverlay isProcessing={isProcessing} />
                 <StatusDialog dialog={dialog} />
-                <div className="w-full max-w-sm bg-[var(--haku-paper)] border border-[var(--haku-ink)]/10 p-1">
+                <div className="w-full max-w-[340px] md:max-w-sm bg-[var(--haku-paper)] border border-[var(--haku-ink)]/10 p-1">
                     <div className="border border-[var(--haku-ink)]/10">
-                        <div className="p-16 text-center bg-[var(--haku-ink)] text-[var(--haku-paper)]">
-                            <img src="/logotype-light.png" alt="HAKU" className="h-12 mx-auto mb-6" />
+                        <div className="p-10 md:p-16 text-center bg-[var(--haku-ink)] text-[var(--haku-paper)]">
+                            <img src="/logotype-light.png" alt="HAKU" className="h-10 md:h-12 mx-auto mb-6" />
                             <div className="h-[1px] w-12 bg-current mx-auto opacity-30 mb-4"></div>
                             <p className="text-[9px] tracking-[0.6em] opacity-50 uppercase font-bold">管理員驗證</p>
                         </div>
-                        <div className="p-14 space-y-12">
+                        <div className="p-8 md:p-14 space-y-10 md:space-y-12">
                             <button
                                 onClick={handleGoogleLogin}
                                 className="w-full py-5 text-[10px] font-Montserrat font-black tracking-[0.5em] bg-[var(--haku-ink)] text-[var(--haku-paper)] transition-all hover:opacity-90 active:scale-[0.98] shadow-xl flex items-center justify-center gap-3"
