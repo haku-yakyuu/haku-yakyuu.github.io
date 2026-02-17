@@ -175,6 +175,7 @@ export default function AdminApp() {
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
     const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     // --- Init ---
     useEffect(() => {
@@ -411,7 +412,9 @@ export default function AdminApp() {
 
     // --- Image Handling ---
     const fileInputRef = useRef(null);
+    const cameraInputRef = useRef(null);
     const triggerFileUpload = () => fileInputRef.current?.click();
+    const triggerCamera = () => cameraInputRef.current?.click();
 
     const handleFileChange = async (e) => {
         if (!editingProduct) return;
@@ -424,6 +427,26 @@ export default function AdminApp() {
 
         // Reset input for same file upload
         e.target.value = null;
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = () => {
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file && file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.addEventListener('load', () => setCropImage(reader.result));
+            reader.readAsDataURL(file);
+        }
     };
 
     const onCropComplete = React.useCallback((croppedArea, croppedAreaPixels) => {
@@ -818,6 +841,7 @@ export default function AdminApp() {
             <StatusDialog dialog={dialog} />
 
             <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept="image/*" />
+            <input type="file" ref={cameraInputRef} className="hidden" onChange={handleFileChange} accept="image/*" capture="environment" />
 
             {/* Sticky Navigation Area */}
             <header className="sticky top-0 z-50 bg-[var(--haku-paper)] border-b border-[var(--haku-ink)]/10 px-6 md:px-12 py-6 flex items-center justify-between">
@@ -891,7 +915,12 @@ export default function AdminApp() {
                                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-24">
 
                                     {/* Left Side: Media */}
-                                    <div className="lg:col-span-12 space-y-8">
+                                    <div
+                                        className={`lg:col-span-12 space-y-8 p-4 border-2 border-transparent transition-all ${isDragging ? 'border-dashed border-[var(--haku-ink)] bg-[var(--haku-ink)]/5' : ''}`}
+                                        onDragOver={handleDragOver}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={handleDrop}
+                                    >
                                         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
                                             {(editingProduct.rawImagesData || editingProduct.images || []).map((imgData, idx) => {
                                                 const src = imgData.preview || getProductImage(imgData.url || imgData);
@@ -909,11 +938,25 @@ export default function AdminApp() {
                                                     </div>
                                                 );
                                             })}
-                                            <button type="button" onClick={triggerFileUpload} className="aspect-square border-2 border-dashed border-[var(--haku-ink)]/10 hover:border-[var(--haku-ink)]/30 hover:bg-[var(--haku-ink)]/5 flex flex-col items-center justify-center gap-3 transition-all">
-                                                <Plus size={24} className="opacity-20" />
-                                                <span className="text-[9px] font-black opacity-30 tracking-widest uppercase">UPLOAD</span>
-                                            </button>
+
+                                            {/* Action Buttons */}
+                                            <div className="contents">
+                                                <button type="button" onClick={triggerFileUpload} className="aspect-square border-2 border-dashed border-[var(--haku-ink)]/10 hover:border-[var(--haku-ink)]/30 hover:bg-[var(--haku-ink)]/5 flex flex-col items-center justify-center gap-3 transition-all">
+                                                    <Plus size={24} className="opacity-20" />
+                                                    <span className="text-[9px] font-black opacity-30 tracking-widest uppercase text-center px-2">UPLOAD / DRAG</span>
+                                                </button>
+
+                                                <button type="button" onClick={triggerCamera} className="md:hidden aspect-square border-2 border-dashed border-[var(--haku-ink)]/10 hover:border-[var(--haku-ink)]/30 hover:bg-[var(--haku-ink)]/5 flex flex-col items-center justify-center gap-3 transition-all">
+                                                    <PenLine size={24} className="opacity-20" />
+                                                    <span className="text-[9px] font-black opacity-30 tracking-widest uppercase text-center px-2">CAMERA</span>
+                                                </button>
+                                            </div>
                                         </div>
+                                        {isDragging && (
+                                            <div className="text-center py-4 border border-[var(--haku-ink)]/10 bg-white/50 animate-pulse">
+                                                <p className="text-[10px] font-Montserrat font-black uppercase tracking-[0.4em] text-[var(--haku-ink)]">Drop images here to add</p>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Middle: Details */}
